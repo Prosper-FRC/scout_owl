@@ -8,22 +8,22 @@
     <style>
       @font-face {
       font-family: 'Roboto';
-      src: url('/../stat_owl/fonts/roboto/Roboto-Regular.ttf') format('ttf'),
-      url('/../stat_owl/fonts/roboto/Roboto-Regular.ttf') format('ttf');
+      src: url('/../scout_owl/fonts/roboto/Roboto-Regular.ttf') format('ttf'),
+      url('/../scout_owl/fonts/roboto/Roboto-Regular.ttf') format('ttf');
       font-weight: normal;
       font-style: normal;
       }
       @font-face {
       font-family: 'Griffy';
-      src: url('/../stat_owl/fonts/Griffy/Griffy-Regular.ttf') format('ttf'),
-      url('/../stat_owl/fonts/Griffy/Griffy-Regular.ttf') format('ttf');
+      src: url('/../scout_owl/fonts/Griffy/Griffy-Regular.ttf') format('ttf'),
+      url('/../scout_owl/fonts/Griffy/Griffy-Regular.ttf') format('ttf');
       font-weight: normal;
       font-style: normal;
       }
       @font-face {
       font-family: 'Comfortaa';
-      src: url('/../stat_owl/fonts/Comfortaa/Comfortaa-Regular.ttf') format('ttf'),
-      url('/../stat_owl/fonts/Comfortaa/Comfortaa-Regular.ttf') format('ttf');
+      src: url('/../scout_owl/fonts/Comfortaa/Comfortaa-Regular.ttf') format('ttf'),
+      url('/../scout_owl/fonts/Comfortaa/Comfortaa-Regular.ttf') format('ttf');
       font-weight: normal;
       font-style: normal;
       }
