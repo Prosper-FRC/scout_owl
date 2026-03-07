@@ -2,144 +2,103 @@
   "game": "2026 Rebuilt",
   "buttons": [
     {
-      "name": "Score 1 fuel",
-      "code": "score_1_fuel",
+      "name": "Leaves Base",
+      "code": "leaves_base",
       "type": "offense",
-      "location": "hub",
-      "layout": "circle-2",
-      "autonPoints": 1,
-      "teleopPoints": 1,
-      "bgColor": "#FBDD2C"
+      "location": "base",
+      "layout": "rect-1",
+      "autonPoints": 0,
+      "teleopPoints": 2
     },
     {
-      "name": "Score 2 fuel",
-      "code": "score_2_fuel",
+      "name": "Excavate Fossil",
+      "code": "excavate_fossil",
       "type": "offense",
-      "location": "hub",
-      "layout": "circle-2",
-      "autonPoints": 2,
-      "teleopPoints": 2,
-      "bgColor": "#FBDD2C"
-    },
-    {
-      "name": "Score 3 fuel",
-      "code": "score_3_fuel",
-      "type": "offense",
-      "location": "hub",
-      "layout": "circle-2",
+      "location": "dig_site",
+      "layout": "rect-2",
       "autonPoints": 3,
-      "teleopPoints": 3,
-      "bgColor": "#FBDD2C"
+      "teleopPoints": 0
     },
     {
-      "name": "Score 4 fuel",
-      "code": "score_4_fuel",
+      "name": "Excavate Relic",
+      "code": "excavate_relic",
       "type": "offense",
-      "location": "hub",
-      "layout": "circle-2",
-      "autonPoints": 4,
-      "teleopPoints": 4,
-      "bgColor": "#FBDD2C"
+      "location": "dig_site",
+      "layout": "rect-2",
+      "autonPoints": 0,
+      "teleopPoints": 0
     },
     {
-      "name": "Defense",
-      "code": "defense",
+      "name": "Restore Fossil",
+      "code": "restore_fossil",
+      "type": "offense",
+      "location": "museum_display",
+      "layout": "rect-1",
+      "autonPoints": 3,
+      "teleopPoints": 2
+    },
+    {
+      "name": "Restore Relic ",
+      "code": "restore_relic_",
+      "type": "offense",
+      "location": " museum_display",
+      "layout": "rect-1",
+      "autonPoints": 6,
+      "teleopPoints": 5
+    },
+    {
+      "name": "Clear Overburden",
+      "code": "clear_overburden",
+      "type": "cooperative",
+      "location": "co-op_zone",
+      "layout": "rect-1",
+      "autonPoints": 0,
+      "teleopPoints": 0
+    },
+    {
+      "name": "Add to Shared Specimen",
+      "code": "add_to_shared_specimen",
+      "type": "cooperative",
+      "location": "center_monument",
+      "layout": "rect-1",
+      "autonPoints": 0,
+      "teleopPoints": 1
+    },
+    {
+      "name": "Control Dig Site",
+      "code": "control_dig_site",
       "type": "defense",
-      "location": "",
-      "layout": "rect-1",
+      "location": "dig_site",
+      "layout": "square-1",
       "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "#CBB9A1"
+      "teleopPoints": 0
     },
     {
-      "name": "Climb lv 1",
-      "code": "climb_lv_1",
+      "name": "Steal Artifact",
+      "code": "steal_artifact",
+      "type": "defense",
+      "location": "mid_field",
+      "layout": "square-1",
+      "autonPoints": 0,
+      "teleopPoints": 0
+    },
+    {
+      "name": "Park",
+      "code": "park",
       "type": "offense",
-      "location": "tower",
+      "location": "museum_display",
       "layout": "rect-1",
-      "autonPoints": 15,
-      "teleopPoints": 10,
-      "bgColor": "#00A3E0"
+      "autonPoints": 2,
+      "teleopPoints": 0
     },
     {
-      "name": "Feed",
-      "code": "feed",
-      "type": "cooperative",
-      "location": "",
-      "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "#FF38C8"
-    },
-    {
-      "name": "Climb lv 2",
-      "code": "climb_lv_2",
+      "name": "Climb Scaffolding",
+      "code": "climb_scaffolding",
       "type": "offense",
-      "location": "tower",
+      "location": "museum_display",
       "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 20,
-      "bgColor": "#00A3E0"
-    },
-    {
-      "name": "",
-      "code": "",
-      "type": "offense",
-      "location": "",
-      "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "undefined"
-    },
-    {
-      "name": "Climb lv 3",
-      "code": "climb_lv_3",
-      "type": "offense",
-      "location": "tower",
-      "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 30,
-      "bgColor": "#00A3E0"
-    },
-    {
-      "name": "Add to depo",
-      "code": "add_to_depo",
-      "type": "cooperative",
-      "location": "",
-      "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "#00BB00"
-    },
-    {
-      "name": "Adds to outpost",
-      "code": "adds_to_outpost",
-      "type": "cooperative",
-      "location": "",
-      "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "#00BB00"
-    },
-    {
-      "name": "",
-      "code": "",
-      "type": "offense",
-      "location": "",
-      "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "undefined"
-    },
-    {
-      "name": "Undo",
-      "code": "undo",
-      "type": "offense",
-      "location": "",
-      "layout": "rect-1",
-      "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "#FFA100"
+      "autonPoints": 6,
+      "teleopPoints": 0
     },
     {
       "name": "Disabled",
@@ -148,8 +107,7 @@
       "location": "anywhere",
       "layout": "rect-1",
       "autonPoints": 0,
-      "teleopPoints": 0,
-      "bgColor": "#E80000"
+      "teleopPoints": 0
     }
   ]
 }

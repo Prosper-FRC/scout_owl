@@ -4,7 +4,7 @@
     {
       "name": "SP1",
       "code": "sp1",
-      "type": "offense",
+      "type": "starting",
       "location": "sarting_line",
       "layout": "circle-2",
       "autonPoints": 0,
@@ -13,7 +13,7 @@
     {
       "name": "SP2",
       "code": "sp2",
-      "type": "offense",
+      "type": "starting",
       "location": "sarting_line",
       "layout": "circle-2",
       "autonPoints": 0,
@@ -22,15 +22,15 @@
     {
       "name": "SP3",
       "code": "sp3",
-      "type": "offense",
+      "type": "starting",
       "location": "sarting_line",
       "layout": "circle-2",
       "autonPoints": 0,
       "teleopPoints": 0
     },
     {
-      "name": "Zone",
-      "code": "zone",
+      "name": "Crosses Starting Line",
+      "code": "crosses_starting_line",
       "type": "offense",
       "location": "sarting_line",
       "layout": "circle-2",
@@ -47,8 +47,8 @@
       "teleopPoints": 0
     },
     {
-      "name": "Score Coral in Trough (Level 1)",
-      "code": "score_coral_trough_l1",
+      "name": "Score Coral Level 1",
+      "code": "scores_coral_level_1",
       "type": "offense",
       "location": "reef",
       "layout": "rect-2",
@@ -56,8 +56,8 @@
       "teleopPoints": 2
     },
     {
-      "name": "Score Coral on Branch (Level 2)",
-      "code": "score_coral_branch_l2",
+      "name": "Score Coral Level 2",
+      "code": "scores_coral_level_2",
       "type": "offense",
       "location": "reef",
       "layout": "rect-2",
@@ -65,8 +65,8 @@
       "teleopPoints": 3
     },
     {
-      "name": "Score Coral on Branch (Level 3)",
-      "code": "score_coral_branch_l3",
+      "name": "Score Coral Level 3",
+      "code": "scores_coral_level_3",
       "type": "offense",
       "location": "reef",
       "layout": "rect-2",
@@ -74,8 +74,8 @@
       "teleopPoints": 4
     },
     {
-      "name": "Score Coral on Branch (Level 4)",
-      "code": "score_coral_branch_l4",
+      "name": "Score Coral Level 4",
+      "code": "scores_coral_level_4",
       "type": "offense",
       "location": "reef",
       "layout": "rect-2",
@@ -93,7 +93,7 @@
     },
     {
       "name": "Score Algae in Processor",
-      "code": "score_algae_processor",
+      "code": "scores_algae_processor",
       "type": "offense",
       "location": "processor",
       "layout": "rect-2",
@@ -102,7 +102,7 @@
     },
     {
       "name": "Score Algae in Net",
-      "code": "score_algae_net",
+      "code": "scores_algae_net",
       "type": "offense",
       "location": "barge",
       "layout": "rect-2",
@@ -111,7 +111,7 @@
     },
     {
       "name": "Park in Barge Zone",
-      "code": "park_barge_zone",
+      "code": "attempts_parked",
       "type": "offense",
       "location": "barge",
       "layout": "square-1",
@@ -119,8 +119,8 @@
       "teleopPoints": 2
     },
     {
-      "name": "Climb Off Ground via Shallow Cage",
-      "code": "climb_shallow_cage",
+      "name": "Attempts Shallow Climb",
+      "code": "attempts_shallow_climb",
       "type": "offense",
       "location": "barge",
       "layout": "rect-1",
@@ -128,8 +128,8 @@
       "teleopPoints": 6
     },
     {
-      "name": "Climb Off Ground via Deep Cage",
-      "code": "climb_deep_cage",
+      "name": "Attempts Deep Climb",
+      "code": "attempts_deep_climb",
       "type": "offense",
       "location": "barge",
       "layout": "rect-1",

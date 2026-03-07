@@ -1,5 +1,5 @@
 <?php
-// scouter.php — The Scout Owl (Loads game from URL parameter)
+// scouter/index.php — The Scout Owl (Loads game from URL parameter)
 
 // Show all errors to help debug
 ini_set('display_errors', 1);
@@ -36,7 +36,7 @@ if (is_dir($gamesDir)) {
 
 // Determine the latest game *only* if we found valid files
 $latestGame = !empty($gameFiles) ? end($gameFiles) : ''; 
- //need to debug
+
 // Optional: Log the results for debugging
 // error_log("Found game files: " . print_r($gameFiles, true));
 // error_log("Latest game determined: " . $latestGame);
@@ -57,8 +57,7 @@ $latestGame = !empty($gameFiles) ? end($gameFiles) : '';
 /* ==== THEME VARIABLES ==== */
 :root {
     /* Light Mode (Default) */
- 
-    --bg-primary: #111;       /* Light background */
+    --bg-primary: #f4f4f4;       /* Light background */
     --bg-secondary: #ffffff;     /* Card/Container background */
     --text-primary: #111111;     /* Dark text */
     --text-secondary: #555555;   /* Lighter text */
@@ -74,18 +73,14 @@ $latestGame = !empty($gameFiles) ? end($gameFiles) : '';
     --scoreboard-bg: #ffffff;
     --scoreboard-border: #cccccc;
     --scoreboard-text: #111111;
-    
-
 }
 
 body.dark-mode {
-
-       /* Dark Mode Overrides */
-    
-    --bg-primary: #111;
-    --bg-secondary: #222;
-    --text-primary: #eee;
-    --text-secondary: #bbb;
+    /* Dark Mode Overrides */
+    --bg-primary: #111111;
+    --bg-secondary: #222222;
+    --text-primary: #eeeeee;
+    --text-secondary: #bbbbbb;
     --border-color: #444444;
     --accent-color: #0d6efd;
     --neutral-border: #cccccc; /* Lighter neutral border for dark mode */
@@ -129,10 +124,10 @@ h4 { font-size:.8rem; }
     background-color: var(--bg-secondary);
     top: 0;
     width: 100vw;       /* Make it full viewport width */
-    max-width: 800px;   /* Cap the width : 800 */
+    max-width: 800px;   /* Cap the width */
     margin: 0 auto;     /* Center horizontally */
     padding: 15px;
-    max-height: 1500px;  /* 1280 */
+    max-height: 1280px;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     transition: background-color 0.3s;
@@ -172,7 +167,7 @@ h4 { font-size:.8rem; }
 .button.circle { border-radius: 50%; aspect-ratio: 1 / 1; height: 4.5rem; width: 4.5rem; padding: 0; margin-left: auto; margin-right: auto; display: flex; align-items: center; justify-content: center; flex-grow: 0; flex-shrink: 0; flex-basis: auto; }
 .threeBox .button.circle { flex-grow: 0; flex-basis: auto; }
 
-.buttons{flex:1; display:grid; grid-template-columns:repeat(2,1fr); gap:32px; width:90%; margin:auto; position:relative}
+.buttons{flex:1; display:grid; grid-template-columns:repeat(2,1fr); gap:12px; width:90%; margin:auto; position:relative}
 .button{
     font-size:0.9rem; text-align:center; background-color: var(--button-bg); color: var(--text-primary);
     border-radius:6px; border: 1px solid var(--border-color); padding: .8rem .5rem; cursor:pointer;
@@ -201,9 +196,9 @@ h4 { font-size:.8rem; }
 /* --- Animations --- */
 @keyframes shake{0%,100%{transform:translate(0)}15%,65%{transform:translateY(-3px)}25%,75%{transform:translateX(-3px)}35%,85%{transform:translateY(3px)}50%{transform:translateX(3px)}}
 .shake{animation:shake .5s ease-in-out}
-@keyframes flashFailure{0%,20%,40%,60%,80%,100%{background-color:var(--red-alliance)}10%,30%,50%,70%,90%{background-color:#ff4148ff}}
+@keyframes flashFailure{0%,20%,40%,60%,80%,100%{background-color:var(--red-alliance)}10%,30%,50%,70%,90%{background-color:inherit}}
 .flashFailure{animation:flashFailure .5s ease-in-out}
-@keyframes flashSuccess{0%,20%,40%,60%,80%,100%{background-color:#00a953ff}10%,30%,50%,70%,90%{background-color:inherit}}
+@keyframes flashSuccess{0%,20%,40%,60%,80%,100%{background-color:#006632}10%,30%,50%,70%,90%{background-color:inherit}}
 .flashSuccess{animation:flashSuccess .5s ease-in-out}
 
 .griffy{font-family:'Griffy',sans-serif}
@@ -261,7 +256,17 @@ h4 { font-size:.8rem; }
 
   <table id="offlineSubmissions" border="1">
     <thead>
-      <tr><th>Game</th><th>Event</th><th>Match</th><th>Time</th><th>Robot</th><th>Alliance</th><th>Action</th><th>Location</th><th>Result</th><th>Points</th></tr>
+      <tr>
+        <th>Game</th> <th>Event</th>
+        <th>Match</th>
+        <th>Time</th>
+        <th>Robot</th>
+        <th>Alliance</th>
+        <th>Action</th>
+        <th>Location</th>
+        <th>Result</th>
+        <th>Points</th>
+      </tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -271,11 +276,6 @@ h4 { font-size:.8rem; }
 
 <script>
 // === THEME TOGGLE LOGIC ===
-
-document.body.addEventListener('click', function(){
-    loadFullscreen();
-});
-
 const themeToggle = document.getElementById('themeToggle');
 const bodyElement = document.body;
 const mainLogo = document.getElementById('mainLogo'); // Make sure this line is here
@@ -283,21 +283,19 @@ const mainLogo = document.getElementById('mainLogo'); // Make sure this line is 
 // Function to apply the theme and save preference
 function applyTheme(theme) {
     if (theme === 'dark') {
-        bodyElement.classList.remove('light-mode');
         bodyElement.classList.add('dark-mode');
         themeToggle.textContent = '🌙'; // Moon icon for dark
         if (mainLogo) { // Check if logo element exists
              mainLogo.src = '../images/thescoutowl.png'; // Dark mode logo
         }
-        localStorage.setItem('scouterTheme', 'dark');
+        localStorage.setItem('scoutrTheme', 'dark');
     } else { // Light mode
         bodyElement.classList.remove('dark-mode');
-        bodyElement.classList.add('light-mode');
         themeToggle.textContent = '☀️'; // Sun icon for light
-         if (mainLogo) { // Check if logo element existsloa
+         if (mainLogo) { // Check if logo element exists
              mainLogo.src = '../images/thescoutowlb.png'; // Light mode logo
         }
-        localStorage.setItem('scoutrTheme', 'light');
+        localStorage.setItem('scouterTheme', 'light');
     }
 }
 
@@ -325,8 +323,7 @@ const scoreboard = document.getElementById('scoreboard');
 
 let selectedBtn = null;
 let score = 0;
-let driftAlerted = false; 
-let G_CURRENT_GAME_NAME = ""; // <-- FIX: Added global var for game name
+let G_CURRENT_GAME_NAME = ""; // <<< ADDED: To store the game name
 
 // === URL PARAMS & MATCH INFO ===
 const params = new URLSearchParams(window.location.search);
@@ -335,118 +332,52 @@ const match = params.get('match');
 const robot = params.get('robot');
 const alliance = params.get('alliance');
 const gameFileFromUrl = params.get('game');
-
-
+const field_id = params.get('field_id');
 
 document.getElementById('eventName').textContent = event ? ` ${event.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}` : 'Unknown Event';
 document.getElementById('matchNumber').textContent = match ? `Match #: ${match}` : 'Match #: N/A';
 document.getElementById('robotName').textContent = robot ? `Robot #: ${robot}` : 'Robot #: N/A';
-
-
-
-
 
 // === SERVER-SYNCED TIMER LOGIC ===
 let startTime = null; let totalPause = 0; let pausedAt = null; let isActive = 0;
 let isPaused = 0; let year = null; let timerTime = 150; let confettiThrown = false;
 let playedSong = false; let timeDrift = 0;
 
+
+function parseUtc(dt) {
+  // handles "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS"
+  if (!dt) return NaN;
+  const s = dt.replace(' ', 'T');
+  // If no timezone suffix, force UTC
+  return Date.parse(s.endsWith('Z') || /[+-]\d\d:\d\d$/.test(s) ? s : (s + 'Z'));
+}
+
 async function fetchMatchData() {
-    try {
-        // --- CACHE-BUSTING FIX for Bluehost ---
-   
-        const gameName = gameFileFromUrl ? gameFileFromUrl.replace(/\.json$/, '') : '';
-        
-        const url = `../php/getMatchTimer.php?event=${encodeURIComponent(event)}&match=${encodeURIComponent(match)}&game=${encodeURIComponent(gameName)}&cacheBust=${Date.now()}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Status: ${response.status}`);
-        
-        const data = await response.json();
-        
-        // Safety check: If data is bad, stop to prevent errors
-        if (data.error || !data.server_time || !data.start_time) {
-            // Only log if the error is new
-            if (timerEl.textContent !== "Inactive") {
-                 console.error("Error fetching timer data or match not found:", data.error || "Missing time data");
-            }
-            isActive = 0; // This will trigger the "Inactive" display
-            return; 
-        }
+  try {
+    const url = `../php/getMatchTimer.php?event=${encodeURIComponent(event)}&match=${encodeURIComponent(match)}`;
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Status: ${response.status}`);
+    const data = await response.json();
 
-        // Parse the full ISO 8601 strings from PHP
-        const serverTimeMs = new Date(data.server_time).getTime();
-        const clientTimeMs = Date.now();
-        
-        // Calculate the drift
-        timeDrift = serverTimeMs - clientTimeMs;
-        
-        // Parse the start time
-        startTime = new Date(data.start_time).getTime();
-        
-        // --- YOUR DRIFT ALERT ---
-        if (!driftAlerted && Math.abs(timeDrift) > 2000) {
-            const driftSeconds = (timeDrift / 1000).toFixed(1);
-            alert(`⚠️ Time Sync Warning\n\nYour device clock is ${driftSeconds} seconds off from the server.`);
-            driftAlerted = true; // Only alert one time
-        }
-        // --- END DRIFT ALERT ---
-        
-        totalPause = Number(data.total_pause_duration || 0);
-        pausedAt = data.paused_at ? new Date(data.paused_at).getTime() : null;
-        isActive = Number(data.active || 0);
-        isPaused = (data.pause == 1);
-        year = data.year || null;
-        
-    } catch (error) {
-        console.error("Error fetching match data:", error);
-        isActive = 0; // Stop timer on error
-    }
+    const serverTimeMs = parseUtc(data.server_time);
+    const clientTimeMs = Date.now();
+    timeDrift = serverTimeMs - clientTimeMs;
+
+    startTime = parseUtc(data.start_time);
+    totalPause = Number(data.total_pause_duration) || 0;
+    pausedAt = data.paused_at || null;
+    isActive = Number(data.active) || 0;
+    isPaused = Number(data.pause) || 0;
+    year = data.year || null;
+
+  } catch (error) {
+    console.error("Error fetching match data:", error);
+  }
 }
 
-function updateMatchTimer() {
-    if (!startTime || isActive === 0) {
-        timerEl.textContent = "Inactive";
-        // Reset flags for the next match
-        confettiThrown = false; 
-        playedSong = false;
-        return;
-    } 
-    
-    // Use the calculated drift to get the "true" server time
-    const correctedTimeMs = Date.now() + timeDrift; 
-    
-    // Calculate elapsed time.
-    // This is the core logic: (Current Server Time) - (Match Start Time) - (Paused Time)
-    let elapsedSeconds = (correctedTimeMs - startTime) / 1000 - totalPause; 
 
-    // If the match is paused, show "Paused" and don't count down
-    if (isPaused) {
-        timerEl.textContent = "Paused";
-        return; 
-    } 
-    
-    const remainingSeconds = Math.max(150 - elapsedSeconds, 0); 
-    timerTime = remainingSeconds; 
-    
-    if (remainingSeconds === 0) {
-        timerEl.textContent = "Finished"; 
-        if (!confettiThrown) { throwCrazyConfetti(); confettiThrown = true; } 
-        if (!playedSong) { playRandomSong(); playedSong = true; } 
-        return; 
-    } 
-    
-    const minutes = Math.floor(remainingSeconds / 60); 
-    const seconds = Math.floor(remainingSeconds % 60); 
-    timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-// --- CORRECT 'STUCK TIMER' FIX ---
-// 1. Fetch new data from the server every second
-setInterval(fetchMatchData, 1000); 
-
-// 2. Update the visual timer 20 times a second (every 50ms)
-setInterval(updateMatchTimer, 50);
-
+function updateMatchTimer() { /* ... unchanged ... */ if (!startTime || isActive === 0) { timerEl.textContent = "Inactive"; return; } const correctedTimeMs = Date.now() + timeDrift; let elapsedSeconds = (correctedTimeMs - startTime) / 1000 - totalPause; if (isPaused) { timerEl.textContent = "Paused"; return; } const remainingSeconds = Math.max(150 - elapsedSeconds, 0); timerTime = remainingSeconds; if (elapsedSeconds >= 150) { timerEl.textContent = "Finished"; if (!confettiThrown) { throwCrazyConfetti(); confettiThrown = true; } if(!playedSong) { playRandomSong(); playedSong = true; } return; } const minutes = Math.floor(remainingSeconds / 60); const seconds = Math.floor(remainingSeconds % 60); timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`; }
+setInterval(async () => { fetchMatchData(); updateMatchTimer(); }, 250);
 
 // === DYNAMIC GAME LOADING ===
 async function loadBanner(baseName){ /* ... unchanged ... */ const base = `games/logos/${baseName}`; let found = false; for (const ext of ['.png','.svg','.webp']) { try { const r = await fetch(base + ext, { method:'HEAD' }); if (r.ok) { banner.src = base + ext; banner.style.display = 'block'; found = true; return; } } catch(e){} } if (!found) { banner.src = 'games/logos/default.svg'; banner.onerror = () => { banner.style.display = 'none'; }; banner.style.display = 'block'; } }
@@ -457,10 +388,9 @@ async function loadGame(file){
       return; // Stop if no game file
   }
   const baseName = file.replace(/\.json$/,'');
-  G_CURRENT_GAME_NAME = baseName; // <-- FIX: Save the game name
+  G_CURRENT_GAME_NAME = baseName; // <<< ADDED: Set the global game name
   titleEl.textContent = baseName + ' Edition'; // Update title text
-  loadBanner(baseName);
-  
+  loadBanner(baseName); // Load banner
 
   // Fetch using encodeURIComponent
   const res = await fetch('games/' + encodeURIComponent(file) + '?t=' + new Date().getTime()); 
@@ -471,125 +401,84 @@ async function loadGame(file){
 }
 
 // --- buildButtons FUNCTION ---
-function buildButtons(list){ /* ... unchanged ... */ 
-    buttonsDiv.innerHTML = ''; 
-    selectedBtn = null; 
-    statusEl.textContent = 'Swipe to Submit'; 
-    locationEl.textContent = 'Location:'; 
-    const createButton = (buttonData, layout) => { 
-        if (!buttonData.name || buttonData.name.trim() === '') { 
-            const spacer = document.createElement('div'); 
-            spacer.className = 'spacer'; 
-            return spacer; 
-            
-        } 
-        const el = document.createElement('div'); 
-        el.className = 'button fontBig'; 
-        if (buttonData.type === 'offense') el.classList.add('alliance'); 
-        if (buttonData.type === 'defense') el.classList.add('opponent'); 
-        if (buttonData.type === 'cooperative') el.classList.add('cooperative'); 
-        if (layout === 'square-1') el.classList.add('PUC'); 
-        if (layout === 'circle-2') el.classList.add('circle'); 
-        el.dataset.action = buttonData.code || ''; 
-        el.dataset.location = buttonData.location || 'anywhere'; 
-        el.dataset.autonPoints = Number(buttonData.autonPoints ?? 0); 
-        el.dataset.teleopPoints = Number(buttonData.teleopPoints ?? 0); 
-        const borderColor = (buttonData.bgColor ?? '').toString().trim();
-        if (borderColor !== '') {
-            el.style.borderColor = borderColor;
-        }
-        el.textContent = buttonData.name; 
-        el.onclick = () => selectButton(el); return el; 
-        
-    }; 
-    
-    for (let i = 0; i < list.length; i++) { 
-        const b = list[i]; 
-        const layout = b.layout || 'rect-1'; 
-        if (layout === 'rect-1' || layout === 'square-1') 
-        { 
-            const btnEl = createButton(b, layout); 
-            buttonsDiv.appendChild(btnEl); 
-            
-        } 
-        
-        else if (layout === 'rect-2' || layout === 'circle-2') 
-        { 
-            const wrapper = document.createElement('div'); 
-            if (!b.name || b.name.trim() === '') 
-            { 
-                wrapper.className = 'spacer'; 
-                const spacerEl1 = createButton(b, layout); 
-                wrapper.appendChild(spacerEl1); 
-                
-            } 
-            else { 
-                wrapper.className = 'threeBox'; 
-                const btnEl1 = createButton(b, layout); 
-                wrapper.appendChild(btnEl1); 
-                
-            } 
-            const next_b = list[i + 1]; 
-            if (next_b && next_b.layout === layout) 
-            { 
-                i++; 
-                const btnEl2 = createButton(list[i], layout); 
-                wrapper.appendChild(btnEl2); 
-                
-            } 
-            else { 
-                const explicitSpacer = document.createElement('div');
-                explicitSpacer.className = 'spacer'; 
-                explicitSpacer.style.flex = '1'; 
-                wrapper.appendChild(explicitSpacer); 
-                
-            } 
-            
-            buttonsDiv.appendChild(wrapper); 
-        } 
-        
-        else if (layout === 'rect-4') 
-            { 
-                const btnEl = createButton(b, layout); 
-                btnEl.classList.add('long-button'); 
-                buttonsDiv.appendChild(btnEl); 
-            }
-    } 
-    
-}
+function buildButtons(list){ /* ... unchanged ... */ buttonsDiv.innerHTML = ''; selectedBtn = null; statusEl.textContent = 'Swipe to Submit'; locationEl.textContent = 'Location:'; const createButton = (buttonData, layout) => { if (!buttonData.name || buttonData.name.trim() === '') { const spacer = document.createElement('div'); spacer.className = 'spacer'; return spacer; } const el = document.createElement('div'); el.className = 'button fontBig'; if (buttonData.type === 'offense') el.classList.add('alliance'); if (buttonData.type === 'defense') el.classList.add('opponent'); if (buttonData.type === 'cooperative') el.classList.add('cooperative'); if (layout === 'square-1') el.classList.add('PUC'); if (layout === 'circle-2') el.classList.add('circle'); el.dataset.action = buttonData.code || ''; el.dataset.location = buttonData.location || 'anywhere'; el.dataset.autonPoints = Number(buttonData.autonPoints ?? 0); el.dataset.teleopPoints = Number(buttonData.teleopPoints ?? 0); el.textContent = buttonData.name; el.onclick = () => selectButton(el); return el; }; for (let i = 0; i < list.length; i++) { const b = list[i]; const layout = b.layout || 'rect-1'; if (layout === 'rect-1' || layout === 'square-1') { const btnEl = createButton(b, layout); buttonsDiv.appendChild(btnEl); } else if (layout === 'rect-2' || layout === 'circle-2') { const wrapper = document.createElement('div'); if (!b.name || b.name.trim() === '') { wrapper.className = 'spacer'; const spacerEl1 = createButton(b, layout); wrapper.appendChild(spacerEl1); } else { wrapper.className = 'threeBox'; const btnEl1 = createButton(b, layout); wrapper.appendChild(btnEl1); } const next_b = list[i + 1]; if (next_b && next_b.layout === layout) { i++; const btnEl2 = createButton(list[i], layout); wrapper.appendChild(btnEl2); } else { const explicitSpacer = document.createElement('div'); explicitSpacer.className = 'spacer'; explicitSpacer.style.flex = '1'; wrapper.appendChild(explicitSpacer); } buttonsDiv.appendChild(wrapper); } } }
 
 function selectButton(el){ /* ... unchanged ... */ document.querySelectorAll('.button:not(.spacer), .threeBox:not(.spacer) > .button').forEach(x=>x.classList.remove('selected')); if(el && !el.classList.contains('spacer')) { el.classList.add('selected'); selectedBtn = el; statusEl.textContent = 'Selected: ' + el.textContent; locationEl.textContent = 'Location: ' + el.dataset.location; } else { selectedBtn = null; statusEl.textContent = 'Swipe to Submit'; locationEl.textContent = 'Location:'; } }
 
-async function loadFullscreen() {
-    try {
-         await document.documentElement.requestFullscreen();
-    } catch {/*ignore*/}
-}
-
 // === SUBMISSION & SWIPE LOGIC ===
 function showAlert(points) { /* ... unchanged ... */ score += points; scoreEl.textContent = score; }
-function handleSwipe(success) { /* ... unchanged ... */ if (!selectedBtn) return; const action = selectedBtn.dataset.action; const location = selectedBtn.dataset.location; const timeIntoMatch = 150 - timerTime; const isAuton = (150 - timeIntoMatch) >= 135; let points = 0; if (success) { points = isAuton ? Number(selectedBtn.dataset.autonPoints) : Number(selectedBtn.dataset.teleopPoints); } const result = success ? 'Success' : 'Failure'; statusEl.textContent = `${selectedBtn.textContent} → ${result} (${points} pts)`; if (result === 'Failure') { blockElement.classList.add('flashFailure'); scoreboard.classList.add('shake'); setTimeout(() => { blockElement.classList.remove('flashFailure'); scoreboard.classList.remove('shake'); }, 250); } else { blockElement.classList.add('flashSuccess'); scoreboard.classList.add('shake'); setTimeout(() => { blockElement.classList.remove('flashSuccess'); scoreboard.classList.remove('shake'); }, 250); } if (timerTime > 0 && timerTime < 150) { if ("vibrate" in navigator) { navigator.vibrate(200); } showAlert(points); 
-    const data = { 
-        game: G_CURRENT_GAME_NAME, // <-- FIX: Send the game name
-        ip_address: 'user-ip-address', 
-        event_name: event, 
-        match_no: match, 
-        time_sec: timeIntoMatch, 
-        robot: robot, 
-        alliance: alliance, 
-        action: action, 
-        location: location, 
-        result: result, 
-        points: points 
-    }; 
-    fetch('../php/insert_submission.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), }).then(response => response.json()).then(responseData => { console.log(responseData); if (responseData.status !== 'success') { saveSubmissionOffline(data); } }).catch(error => { console.error('Error:', error); saveSubmissionOffline(data); }); } }
+function handleSwipe(success) {
+    if (!selectedBtn) return;
+    const action = selectedBtn.dataset.action;
+    const location = selectedBtn.dataset.location;
+    const timeIntoMatch = 150 - timerTime;
+    const isAuton = (150 - timeIntoMatch) >= 135;
+    let points = 0;
+    if (success) {
+        points = isAuton ? Number(selectedBtn.dataset.autonPoints) : Number(selectedBtn.dataset.teleopPoints);
+    }
+    const result = success ? 'Success' : 'Failure';
+    statusEl.textContent = `${selectedBtn.textContent} → ${result} (${points} pts)`;
+    if (result === 'Failure') {
+        blockElement.classList.add('flashFailure');
+        scoreboard.classList.add('shake');
+        setTimeout(() => {
+            blockElement.classList.remove('flashFailure');
+            scoreboard.classList.remove('shake');
+        }, 250);
+    } else {
+        blockElement.classList.add('flashSuccess');
+        scoreboard.classList.add('shake');
+        setTimeout(() => {
+            blockElement.classList.remove('flashSuccess');
+            scoreboard.classList.remove('shake');
+        }, 250);
+    }
+    if (timerTime > 0 && timerTime < 150) {
+        if ("vibrate" in navigator) {
+            navigator.vibrate(200);
+        }
+        showAlert(points);
+        
+        // *** UPDATED SUBMISSION DATA ***
+        const data = {
+            game: G_CURRENT_GAME_NAME, // <<< ADDED
+            ip_address: 'user-ip-address',
+            field_id: field_id,
+            event_name: event,
+            match_no: match,
+            time_sec: timeIntoMatch,
+            robot: robot,
+            alliance: alliance,
+            action: action,
+            location: location,
+            result: result,
+            points: points
+        };
+        fetch('../php/insert_submission.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data),
+        }).then(response => response.json()).then(responseData => {
+            console.log(responseData);
+            if (responseData.status !== 'success') {
+                saveSubmissionOffline(data);
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            saveSubmissionOffline(data);
+        });
+    }
+}
 
 // === OFFLINE & CONNECTIVITY LOGIC ===
 function saveSubmissionOffline(data) {
     const tableBody = document.querySelector('#offlineSubmissions tbody');
     const row = document.createElement('tr');
     
-    // *** FIX: UPDATED FIELDS ARRAY ***
+    // *** UPDATED FIELDS ARRAY ***
     const fields = ['game', 'event_name', 'match_no', 'time_sec', 'robot', 'alliance', 'action', 'location', 'result', 'points'];
     fields.forEach(field => {
         const cell = document.createElement('td');
@@ -604,9 +493,9 @@ function sendOfflineSubmissions() {
     rows.forEach((row) => {
         const cells = row.querySelectorAll('td');
         
-        // *** FIX: UPDATED OFFLINE SUBMISSION DATA ***
+        // *** UPDATED OFFLINE SUBMISSION DATA ***
         const submissionData = {
-            game: cells[0].textContent,
+            game: cells[0].textContent,       // <<< ADDED
             event_name: cells[1].textContent,
             match_no: cells[2].textContent,
             time_sec: cells[3].textContent,

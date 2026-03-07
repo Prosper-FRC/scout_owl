@@ -127,71 +127,6 @@ if (is_dir($gamesDir)) {
 }
 ?>
 
-
-
-<?php
-// ... your existing PHP above ...
-
-// --- DOWNLOAD JSON (GET) ---
-// /config.php?download=1&file=Some%20Game.json
-// or /config.php?download=1&name=Some%20Game&data=<urlencoded json>
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['download'])) {
-    // If "file" is provided, stream the server-stored JSON
-    if (!empty($_GET['file'])) {
-        $file = basename($_GET['file']); // prevent path traversal
-        $filePath = $gamesDir . '/' . $file;
-
-        if (!is_file($filePath)) {
-            http_response_code(404);
-            header('Content-Type: text/plain; charset=UTF-8');
-            echo "File not found.";
-            exit;
-        }
-
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="' . $file . '"');
-        header('Content-Length: ' . filesize($filePath));
-        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-        header('Pragma: no-cache');
-        readfile($filePath);
-        exit;
-    }
-
-    // Otherwise allow downloading ad-hoc JSON passed from the browser
-    $name = $_GET['name'] ?? 'game-config';
-    $safeName = preg_replace('/[^a-zA-Z0-9_\- ]/', '', $name);
-    $downloadName = trim($safeName) !== '' ? $safeName . '.json' : 'game-config.json';
-
-    $data = $_GET['data'] ?? '';
-    if ($data === '') {
-        http_response_code(400);
-        header('Content-Type: text/plain; charset=UTF-8');
-        echo "Missing data.";
-        exit;
-    }
-
-    // If client URL-encoded it, PHP will already decode in $_GET, but keep robust:
-    // Validate JSON to avoid downloading garbage
-    json_decode($data);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        http_response_code(400);
-        header('Content-Type: text/plain; charset=UTF-8');
-        echo "Invalid JSON.";
-        exit;
-    }
-
-    header('Content-Type: application/json; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="' . $downloadName . '"');
-    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-    header('Pragma: no-cache');
-    echo $data;
-    exit;
-}
-?>
-
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -231,7 +166,7 @@ label { color: var(--text-secondary); display: block; margin-bottom: 5px; text-a
 
 .container {
     padding: 20px;
-    max-width: 1200px;
+    max-width: 900px;
     margin: 0 auto 20px auto;
     background-color: var(--bg-secondary);
     border-radius: 8px;
@@ -341,7 +276,6 @@ body.dark-mode tr.dragging { background: #0a2d57; }
             <th>Layout</th>
             <th>Auton Pts</th>
             <th>Teleop Pts</th>
-            <th>Bkg Color (hex)</th>
             <th>Actions</th>
         </tr>
         </thead>
@@ -351,12 +285,6 @@ body.dark-mode tr.dragging { background: #0a2d57; }
     <br><br>
 
     <button id="saveJSON">Save JSON Config</button>
-<button id="downloadJSON">Download JSON</button>
-<div class="import-group">
-  <label for="jsonUploadFile">Upload Config (.json):</label>
-  <input type="file" id="jsonUploadFile" accept="application/json,.json">
-  <button id="uploadJSONBtn" type="button">Load JSON</button>
-</div>
 
     <div class="import-group">
         <label for="importSelect">Import Config from Server:</label>
@@ -416,14 +344,9 @@ function addRow(data = {}) {
         <td><input value="${data.code || ''}" readonly></td>
         <td> <select> <option value="offense" ${isSel('offense', data.type)}>Offense</option> <option value="defense" ${isSel('defense', data.type)}>Defense</option> <option value="cooperative" ${isSel('cooperative', data.type)}>Cooperative</option> </select> </td>
         <td><input value="${data.location || ''}"></td>
-        <td> <select> <option value="rect-1" ${isSel('rect-1', data.layout || 'rect-1')}>1x Rectangle</option> 
-        <option value="rect-2" ${isSel('rect-2', data.layout)}>2x Rect (Half)</option>
-        <option value="rect-4" ${isSel('rect-3', data.layout)}>4x Rect (Double)</option>
-      
-        <option value="circle-2" ${isSel('circle-2', data.layout)}>2x Circle (Half)</option> <option value="square-1" ${isSel('square-1', data.layout)}>1x Square (Tall)</option> <option value="rect-full" ${isSel('rect-full', data.layout)}>Full Rect Group</option> <option value="circle-full" ${isSel('circle-full', data.layout)}>Full Circle Group</option> </select> </td>
+        <td> <select> <option value="rect-1" ${isSel('rect-1', data.layout || 'rect-1')}>1x Rectangle</option> <option value="rect-2" ${isSel('rect-2', data.layout)}>2x Rect (Half)</option> <option value="circle-2" ${isSel('circle-2', data.layout)}>2x Circle (Half)</option> <option value="square-1" ${isSel('square-1', data.layout)}>1x Square (Tall)</option> <option value="rect-full" ${isSel('rect-full', data.layout)}>Full Rect Group</option> <option value="circle-full" ${isSel('circle-full', data.layout)}>Full Circle Group</option> </select> </td>
         <td><input type="number" value="${data.autonPoints ?? 0}"></td>
         <td><input type="number" value="${data.teleopPoints ?? 0}"></td>
-        <td><input value="${data.bgColor}"></td>
         <td> <button class="drag-handle" draggable="true">☰</button> <button onclick="duplicateRow(this)">⧉</button> <button onclick="deleteRow(this)">🗑️</button> </td>`;
     tbody.appendChild(tr);
 }
@@ -434,7 +357,7 @@ function autoCode(el) {
 function duplicateRow(btn) {
     const row = btn.closest('tr');
     const cells = row.querySelectorAll('input,select');
-    const data = { name: cells[0].value, code: cells[1].value, type: cells[2].value, location: cells[3].value, layout: cells[4].value, autonPoints: +cells[5].value, teleopPoints: +cells[6].value, bgColor: cells[7].value };
+    const data = { name: cells[0].value, code: cells[1].value, type: cells[2].value, location: cells[3].value, layout: cells[4].value, autonPoints: +cells[5].value, teleopPoints: +cells[6].value };
     addRow(data);
 }
 function deleteRow(btn) { btn.closest('tr').remove(); }
@@ -500,7 +423,7 @@ document.getElementById('saveJSON').onclick = () => {
     const filename = `${gameName}.json`;
     const rows = [...tbody.children].map(r => {
         const i = r.querySelectorAll('input,select');
-        return { name: i[0].value, code: i[1].value, type: i[2].value, location: i[3].value, layout: i[4].value, autonPoints: +i[5].value, teleopPoints: +i[6].value, bgColor: i[7].value };
+        return { name: i[0].value, code: i[1].value, type: i[2].value, location: i[3].value, layout: i[4].value, autonPoints: +i[5].value, teleopPoints: +i[6].value };
     });
     
     const data = JSON.stringify({ game: gameName, buttons: rows }, null, 2);
@@ -583,141 +506,10 @@ tbody.addEventListener('dragend', () => {
 
 // === DEFAULT ROWS ===
 if (tbody.children.length === 0) {
-    addRow({name: "Picks Up Coral", code: "picks_up_coral", type: "offense", location: "station", layout: "rect-1", autonPoints: 0, teleopPoints: 0, bgColor: "00FF00"});
-    addRow({name: "Scores Coral Lvl 1", code: "scores_coral_level_1", type: "offense", location: "reef", layout: "rect-1", autonPoints: 3, teleopPoints: 2, bgColor: "037c6e"});
-    addRow({name: "Co-op Action", code: "co_op_action", type: "cooperative", location: "anywhere", layout: "rect-1", autonPoints: 0, teleopPoints: 0, bgColor: "999999"});
+    addRow({name: "Picks Up Coral", code: "picks_up_coral", type: "offense", location: "station", layout: "rect-1", autonPoints: 0, teleopPoints: 0});
+    addRow({name: "Scores Coral Lvl 1", code: "scores_coral_level_1", type: "offense", location: "reef", layout: "rect-1", autonPoints: 3, teleopPoints: 2});
+    addRow({name: "Co-op Action", code: "co_op_action", type: "cooperative", location: "anywhere", layout: "rect-1", autonPoints: 0, teleopPoints: 0});
 }
-
-
-
-function buildCurrentJson() {
-    const gameName = gameNameInput.value.trim() || 'game-config';
-
-    const rows = [...tbody.children].map(r => {
-        const i = r.querySelectorAll('input,select');
-        return {
-            name: i[0].value,
-            code: i[1].value,
-            type: i[2].value,
-            location: i[3].value,
-            layout: i[4].value,
-            autonPoints: +i[5].value,
-            teleopPoints: +i[6].value,
-            bgColor: i[7].value
-        };
-    });
-
-    return JSON.stringify({ game: gameName, buttons: rows }, null, 2);
-}
-
-// Option A (recommended): client-side download (no URL length limits)
-document.getElementById('downloadJSON').onclick = () => {
-    const gameName = gameNameInput.value.trim() || 'game-config';
-    const jsonText = buildCurrentJson();
-
-    const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${gameName}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    URL.revokeObjectURL(url);
-};
-
-// Option B: download the selected server file (if one is selected)
-// If you want this instead, use this handler and remove Option A:
-//
-// document.getElementById('downloadJSON').onclick = () => {
-//     const selected = importSelect.value;
-//     if (!selected) {
-//         alert('Select a saved config from the dropdown (or Save first).');
-//         return;
-//     }
-//     window.location.href = `${window.location.pathname}?download=1&file=${encodeURIComponent(selected)}`;
-// };
-
-
-const jsonUploadFile = document.getElementById('jsonUploadFile');
-const uploadJSONBtn = document.getElementById('uploadJSONBtn');
-
-function loadConfigObject(obj) {
-    // Basic shape validation
-    if (!obj || typeof obj !== 'object') throw new Error('JSON root must be an object.');
-    if (!Array.isArray(obj.buttons)) throw new Error('Missing "buttons" array.');
-
-    tbody.innerHTML = '';
-    (obj.buttons || []).forEach(addRow);
-
-    // Prefer obj.game, fallback to filename-derived, etc.
-    if (typeof obj.game === 'string' && obj.game.trim()) {
-        gameNameInput.value = obj.game.trim();
-    }
-}
-
-uploadJSONBtn.addEventListener('click', async () => {
-    const file = jsonUploadFile.files && jsonUploadFile.files[0];
-    if (!file) {
-        alert('Choose a .json file first.');
-        return;
-    }
-    if (!file.name.toLowerCase().endsWith('.json')) {
-        alert('Please upload a .json file.');
-        return;
-    }
-
-    try {
-        const text = await file.text();
-        const obj = JSON.parse(text);
-
-        // If the JSON has no "game", default to filename without extension
-        if (!obj.game || typeof obj.game !== 'string' || !obj.game.trim()) {
-            obj.game = file.name.replace(/\.json$/i, '');
-        }
-
-        loadConfigObject(obj);
-
-        // OPTIONAL: auto-save to server immediately after load
-        // (uses your existing save_json handler)
-        const filename = `${obj.game}.json`;
-        const normalized = JSON.stringify(
-            { game: obj.game, buttons: obj.buttons },
-            null,
-            2
-        );
-
-        const formData = new FormData();
-        formData.append('action', 'save_json');
-        formData.append('filename', filename);
-        formData.append('jsondata', normalized);
-
-        const resp = await fetch(window.location.href, { method: 'POST', body: formData });
-        const result = await resp.json();
-
-        if (result.status === 'success') {
-            // ensure dropdown contains it
-            if (![...importSelect.options].some(opt => opt.value === filename)) {
-                importSelect.add(new Option(obj.game, filename));
-            }
-            importSelect.value = filename;
-            alert('Loaded and saved: ' + filename);
-        } else {
-            alert('Loaded, but server save failed: ' + result.message);
-        }
-
-    } catch (e) {
-        alert('Upload failed: ' + (e.message || e));
-    } finally {
-        // clear file input so selecting same file again triggers change
-        jsonUploadFile.value = '';
-    }
-});
-jsonUploadFile.addEventListener('change', () => uploadJSONBtn.click());
-
-
 </script>
 </body>
 </html>

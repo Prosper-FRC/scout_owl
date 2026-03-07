@@ -8,17 +8,28 @@
 // 
 // 
 // 
-// 
-// 
+// Add to all matches tables
+// ALTER TABLE matches DROP INDEX match_event_year;
+// ALTER TABLE matches ADD UNIQUE KEY match_event_year (year, event, match_number, field_id, game);
 
 
 
-// Include the database connection file
 require_once '../php/database_connection.php';
 
+// Safe defaults so page still renders if DB action fails
+$selected_field_id = 1;
+$gameFiles = [];
+$activeEvents = [];
+$active_code = null;
+$activeMatch = null;
+$isMatchActive = false;
+$current_event_name = null;
+$current_match_number = null;
+$current_game_name = null;
+$pageError = null;
+
 try {
-    // --- Determine selected field_id (from GET first, then POST, else default 1) ---
-    $selected_field_id = 1;
+    // --- Determine selected field_id (GET -> POST -> default 1) ---
     if (isset($_GET['field_id']) && $_GET['field_id'] !== '') {
         $selected_field_id = (int)$_GET['field_id'];
     } elseif (isset($_POST['field_id']) && $_POST['field_id'] !== '') {
@@ -28,7 +39,6 @@ try {
 
     // --- Load Game Files ---
     $gamesDir = __DIR__ . '/../scouter/games';
-    $gameFiles = [];
     if (is_dir($gamesDir)) {
         $files = glob($gamesDir . DIRECTORY_SEPARATOR . '*.json');
         if ($files !== false && count($files) > 0) {
@@ -42,7 +52,7 @@ try {
 
     // Generate a new 4-digit code
     if (isset($_POST['generate_code'])) {
-        $new_code = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+        $new_code = str_pad((string)rand(0, 9999), 4, '0', STR_PAD_LEFT);
         $pdo->prepare("UPDATE codes SET is_active = 0")->execute();
         $stmt = $pdo->prepare("INSERT INTO codes (code, is_active) VALUES (:new_code, 1)");
         $stmt->bindParam(':new_code', $new_code);
@@ -52,64 +62,73 @@ try {
     // Begin Match: Insert or update match (FIELD-SCOPED)
     if (isset($_POST['begin_match'])) {
         $year = gmdate('Y');
-        $event = $_POST['event'] ?? '';
-        $match_number = $_POST['match_number'] ?? '';
-        $game = $_POST['game'] ?? '';
+        $event = trim($_POST['event'] ?? '');
+        $match_number = trim((string)($_POST['match_number'] ?? ''));
+        $game = trim($_POST['game'] ?? '');
         $field_id = isset($_POST['field_id']) ? (int)$_POST['field_id'] : $selected_field_id;
         if ($field_id <= 0) $field_id = 1;
 
         // Keep selected field in sync after submit
         $selected_field_id = $field_id;
 
-        if (!empty($year) && !empty($event) && !empty($match_number) && !empty($game) && !empty($field_id)) {
+        if ($year !== '' && $event !== '' && $match_number !== '' && $game !== '') {
+            $pdo->beginTransaction();
 
-            // If scouting submissions are field-specific, delete only for this field
-            $sql_delete_scouting = "DELETE FROM scouting_submissions
-                                    WHERE event_name = :event
-                                      AND match_no = :match_number
-                                      AND game = :game
-                                      AND field_id = :field_id";
-            $stmt_delete_scouting = $pdo->prepare($sql_delete_scouting);
-            $stmt_delete_scouting->execute([
-                ':event' => $event,
-                ':match_number' => $match_number,
-                ':game' => $game,
-                ':field_id' => $field_id
-            ]);
+            try {
+                // If scouting submissions are field-specific, delete only for this field
+                $sql_delete_scouting = "DELETE FROM scouting_submissions
+                                        WHERE event_name = :event
+                                          AND match_no = :match_number
+                                          AND game = :game
+                                          AND field_id = :field_id";
+                $stmt_delete_scouting = $pdo->prepare($sql_delete_scouting);
+                $stmt_delete_scouting->execute([
+                    ':event' => $event,
+                    ':match_number' => $match_number,
+                    ':game' => $game,
+                    ':field_id' => $field_id
+                ]);
 
-            // Only deactivate matches on THIS field
-            $stmt = $pdo->prepare("UPDATE matches SET active = 0 WHERE active = 1 AND field_id = :field_id");
-            $stmt->execute([':field_id' => $field_id]);
+                // Only deactivate matches on THIS field
+                $stmt = $pdo->prepare("UPDATE matches SET active = 0 WHERE active = 1 AND field_id = :field_id");
+                $stmt->execute([':field_id' => $field_id]);
 
-            // Delete existing match row for same identity + field
-            $sql_delete_match = "DELETE FROM matches
-                                 WHERE year = :year
-                                   AND event = :event
-                                   AND match_number = :match_number
-                                   AND game = :game
-                                   AND field_id = :field_id";
-            $stmt_delete_match = $pdo->prepare($sql_delete_match);
-            $stmt_delete_match->execute([
-                ':year' => $year,
-                ':event' => $event,
-                ':match_number' => $match_number,
-                ':game' => $game,
-                ':field_id' => $field_id
-            ]);
+                // Delete existing match row for same identity + field
+                // IMPORTANT: your DB unique index should include field_id if you want concurrent same match numbers on different fields
+                $sql_delete_match = "DELETE FROM matches
+                                     WHERE year = :year
+                                       AND event = :event
+                                       AND match_number = :match_number
+                                       AND game = :game
+                                       AND field_id = :field_id";
+                $stmt_delete_match = $pdo->prepare($sql_delete_match);
+                $stmt_delete_match->execute([
+                    ':year' => $year,
+                    ':event' => $event,
+                    ':match_number' => $match_number,
+                    ':game' => $game,
+                    ':field_id' => $field_id
+                ]);
 
-            // Insert new active match on this field
-            $sql_insert = "INSERT INTO matches
-                            (year, event, game, match_number, field_id, start_time, pause, total_pause_duration, active)
-                           VALUES
-                            (:year, :event, :game, :match_number, :field_id, UTC_TIMESTAMP(), 0, 0, 1)";
-            $stmt_insert = $pdo->prepare($sql_insert);
-            $stmt_insert->execute([
-                ':year' => $year,
-                ':event' => $event,
-                ':game' => $game,
-                ':match_number' => $match_number,
-                ':field_id' => $field_id
-            ]);
+                // Insert new active match on this field
+                $sql_insert = "INSERT INTO matches
+                                (year, event, game, match_number, field_id, start_time, pause, total_pause_duration, active)
+                               VALUES
+                                (:year, :event, :game, :match_number, :field_id, UTC_TIMESTAMP(), 0, 0, 1)";
+                $stmt_insert = $pdo->prepare($sql_insert);
+                $stmt_insert->execute([
+                    ':year' => $year,
+                    ':event' => $event,
+                    ':game' => $game,
+                    ':match_number' => $match_number,
+                    ':field_id' => $field_id
+                ]);
+
+                $pdo->commit();
+            } catch (PDOException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $e;
+            }
         }
     }
 
@@ -156,46 +175,47 @@ try {
 
     // Form state helpers (field-specific)
     $isMatchActive = ($activeMatch != null);
-    $current_event_name = null;
-    $current_match_number = null;
-    $current_game_name = null;
 
     if ($isMatchActive) {
-        $current_event_name = $activeMatch['event'];
-        $current_match_number = $activeMatch['match_number'];
+        $current_event_name = $activeMatch['event'] ?? null;
+        $current_match_number = $activeMatch['match_number'] ?? null;
+        $current_game_name = $activeMatch['game'] ?? null;
 
         // Try to get game from active_event table (optional)
         try {
-            // Attempt with field_id (if column exists)
             $stmt_game = $pdo->prepare("SELECT game FROM active_event WHERE event_name = :event AND match_number = :match AND field_id = :field_id LIMIT 1");
             $stmt_game->execute([
                 ':event' => $current_event_name,
                 ':match' => $current_match_number,
                 ':field_id' => $selected_field_id
             ]);
-            $current_game_name = $stmt_game->fetchColumn();
+            $gameFromActiveEvent = $stmt_game->fetchColumn();
 
-            if ($current_game_name === false || $current_game_name === null || $current_game_name === '') {
-                // Fallback without field_id
+            if ($gameFromActiveEvent !== false && $gameFromActiveEvent !== null && $gameFromActiveEvent !== '') {
+                $current_game_name = $gameFromActiveEvent;
+            } else {
                 $stmt_game2 = $pdo->prepare("SELECT game FROM active_event WHERE event_name = :event AND match_number = :match LIMIT 1");
                 $stmt_game2->execute([
                     ':event' => $current_event_name,
                     ':match' => $current_match_number
                 ]);
-                $current_game_name = $stmt_game2->fetchColumn();
+                $gameFromActiveEvent2 = $stmt_game2->fetchColumn();
+                if ($gameFromActiveEvent2 !== false && $gameFromActiveEvent2 !== null && $gameFromActiveEvent2 !== '') {
+                    $current_game_name = $gameFromActiveEvent2;
+                }
             }
         } catch (PDOException $e) {
-            $current_game_name = null;
+            // keep current_game_name from matches row
         }
     }
 
     // Convert UTC start_time to UTC milliseconds for JS
-    if ($activeMatch) {
+    if ($activeMatch && !empty($activeMatch['start_time'])) {
         $activeMatch['start_time_utc_ms'] = strtotime($activeMatch['start_time'] . ' UTC') * 1000;
     }
 
 } catch (PDOException $e) {
-    echo "Error: " . $e->getMessage();
+    $pageError = $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -218,11 +238,11 @@ try {
       #red1, #red2, #red3, #blue1, #blue2, #blue3 { width:100%; max-width:395px; }
     }
     .logo { width:100%; max-width:400px; display:block; margin:0 auto 1rem auto; }
-    select{ min-width:200px; }
-    input, button{
+    select { min-width:200px; }
+    input, button {
       min-width:200px; font-size:1.1rem; padding:12px; border:1px solid #fff; background:#222; color:#fff; border-radius:5px;
     }
-    button{ cursor:pointer; }
+    button { cursor:pointer; }
     .flash { animation: flashEffect 1s linear; }
     @keyframes flashEffect { 0%{background:yellow;} 50%{background:red;} 100%{background:yellow;} }
 
@@ -237,12 +257,10 @@ try {
     .timestamp { color:#FF4500; font-weight:bold; }
     .action { font-weight:bold; color:#00BFFF; }
     .result { color:#FF69B4; font-style:italic; }
-    .redRobots{ background:#C0392B; }
-    .blueRobots{ background:#2C3E50; }
-    #logoOuter{ display:inline-block; }
-
-    /* Auto sync UI */
-    #autoSyncWrap{
+    .redRobots { background:#C0392B; }
+    .blueRobots { background:#2C3E50; }
+    #logoOuter { display:inline-block; }
+    #autoSyncWrap {
       margin-top: 10px;
       display: inline-flex;
       align-items: center;
@@ -253,13 +271,25 @@ try {
       border: 1px solid #555;
       border-radius: 8px;
     }
-    #syncStatus{
+    #syncStatus {
       font-size: 0.95rem;
       opacity: 0.9;
       min-width: 220px;
       text-align: left;
     }
-    #syncNowBtn{ min-width: 140px; }
+    #syncNowBtn { min-width: 140px; }
+    .page-error {
+      margin: 10px auto 0 auto;
+      padding: 12px 14px;
+      max-width: 900px;
+      background: #5b1d1d;
+      border: 1px solid #ff7d7d;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      text-align: left;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -268,19 +298,24 @@ try {
   <a href=".."><img src="../images/owladmin.png" class="logo" alt="Logo"></a>
 </div>
 
+<?php if ($pageError): ?>
+  <div class="page-error">
+    Error: <?= htmlspecialchars($pageError) ?>
+  </div>
+<?php endif; ?>
+
 <div id="startMatch">
   <form method="POST" id="matchForm">
-    <!-- Field select (NEW) -->
     <select name="field_id" id="field_id" required <?= $isMatchActive ? 'disabled' : '' ?>>
       <option value="">Field</option>
-      <?php for($f=1;$f<=6;$f++): ?>
+      <?php for ($f = 1; $f <= 6; $f++): ?>
         <option value="<?= $f ?>" <?= ((int)$selected_field_id === $f) ? 'selected' : '' ?>>Field <?= $f ?></option>
       <?php endfor; ?>
     </select>
 
     <select name="delay" id="delay">
       <option value="">Delay</option>
-      <?php for($i=0;$i<=14;$i++): ?>
+      <?php for ($i = 0; $i <= 14; $i++): ?>
         <option value="<?= $i ?>"><?= $i ?></option>
       <?php endfor; ?>
     </select>
@@ -288,7 +323,7 @@ try {
     <select name="game" id="game" required <?= $isMatchActive ? 'disabled' : '' ?>>
       <option value="">Game</option>
       <?php foreach ($gameFiles as $g): $gameName = htmlspecialchars($g); ?>
-        <option value="<?= $gameName ?>" <?= ($gameName == $current_game_name) ? 'selected' : '' ?>>
+        <option value="<?= $gameName ?>" <?= ($gameName === (string)$current_game_name) ? 'selected' : '' ?>>
           <?= $gameName ?>
         </option>
       <?php endforeach; ?>
@@ -297,14 +332,14 @@ try {
     <select name="event" id="event" required <?= $isMatchActive ? 'disabled' : '' ?>>
       <option value="">Event</option>
       <?php foreach ($activeEvents as $ev): $eventName = htmlspecialchars($ev['event_name']); ?>
-        <option value="<?= $eventName ?>" <?= ($eventName == $current_event_name) ? 'selected' : '' ?>>
+        <option value="<?= $eventName ?>" <?= ($eventName === (string)$current_event_name) ? 'selected' : '' ?>>
           <?= $eventName ?>
         </option>
       <?php endforeach; ?>
     </select>
 
     <input type="number" name="match_number" id="match_number" required min="1" placeholder="Enter Match Number"
-           value="<?= htmlspecialchars($current_match_number) ?>" <?= $isMatchActive ? 'disabled' : '' ?>>
+           value="<?= htmlspecialchars((string)$current_match_number) ?>" <?= $isMatchActive ? 'disabled' : '' ?>>
 
     <button type="submit" name="begin_match" <?= $isMatchActive ? 'disabled' : '' ?>>
       <?= $isMatchActive ? 'Match in Progress' : 'Begin Match' ?>
@@ -337,8 +372,8 @@ try {
     <?php if ($activeMatch): ?>
       <p id="activeMatchinfo">
         Field <strong><?= (int)$selected_field_id ?></strong>:
-        Match <strong><?= htmlspecialchars($activeMatch['match_number']) ?></strong> for
-        <strong><?= htmlspecialchars($activeMatch['event']) ?></strong>(<?= gmdate("Y") ?>) is active.
+        Match <strong><?= htmlspecialchars((string)$activeMatch['match_number']) ?></strong> for
+        <strong><?= htmlspecialchars((string)$activeMatch['event']) ?></strong> (<?= gmdate("Y") ?>) is active.
       </p>
       <p id="timer">Loading...</p>
     <?php else: ?>
@@ -361,7 +396,7 @@ try {
 <div id="scoutingModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.7); z-index:1000;">
   <div style="position:relative; width:90%; max-width:700px; margin:5% auto; background:#222; padding:20px; border-radius:8px;">
     <span onclick="closeForm()" style="position:absolute; top:10px; right:15px; font-size:20px; color:white; cursor:pointer;">&times;</span>
-    <iframe src="scouting_form.php" style="width:100%; height:600px; border:none;"></iframe>
+   <iframe src="scouting_form.php?cacheBust=<?= time() ?>" style="width:100%; height:600px; border:none;"></iframe>
   </div>
 </div>
 
@@ -370,14 +405,9 @@ function openForm(){ document.getElementById("scoutingModal").style.display = "b
 function closeForm(){ document.getElementById("scoutingModal").style.display = "none"; }
 </script>
 
-
-
-
-
 <script>
 let autoTimer = null;
 let syncInFlight = false;
-let autoSyncEnabled = false;
 
 const autoCheck = document.getElementById('autoSyncCheck');
 const autoSecs  = document.getElementById('autoSyncSeconds');
@@ -385,7 +415,8 @@ const syncNowBtn = document.getElementById('syncNowBtn');
 const statusEl  = document.getElementById('syncStatus');
 
 function getFieldId() {
-  const v = document.getElementById('field_id')?.value;
+  const fieldEl = document.getElementById('field_id');
+  const v = fieldEl ? fieldEl.value : '';
   return v ? v.trim() : '';
 }
 
@@ -426,13 +457,9 @@ function refreshAutoSyncUI() {
   }
 }
 
-/**
- * Read response body exactly once (text), then JSON.parse it.
- * This avoids "Body is disturbed or locked".
- */
 async function fetchJsonOnce(url, options) {
   const res = await fetch(url, options);
-  const text = await res.text(); // read ONCE
+  const text = await res.text();
 
   let data;
   try {
@@ -442,10 +469,8 @@ async function fetchJsonOnce(url, options) {
     throw new Error(`Sync endpoint returned non-JSON (HTTP ${res.status}). ${snippet}`);
   }
 
-  // Attach status for callers if needed
   data.__httpStatus = res.status;
   data.__ok = res.ok;
-
   return data;
 }
 
@@ -454,9 +479,9 @@ async function runSyncOnce() {
   syncInFlight = true;
 
   const fieldVal = getFieldId();
-  const eventVal = document.getElementById('event').value.trim();
-  const matchVal = document.getElementById('match_number').value.trim();
-  const gameVal  = document.getElementById('game').value.trim();
+  const eventVal = document.getElementById('event')?.value?.trim() || '';
+  const matchVal = document.getElementById('match_number')?.value?.trim() || '';
+  const gameVal  = document.getElementById('game')?.value?.trim() || '';
 
   statusEl.style.color = '#fff';
   statusEl.textContent = 'Syncing...';
@@ -485,7 +510,6 @@ async function runSyncOnce() {
     statusEl.style.color = '#6bff95';
     statusEl.textContent =
       `Sync OK @ ${now.toLocaleTimeString()} | local_rows=${data.local_rows} | hosted_affected=${data.hosted_affected}`;
-
   } catch (err) {
     statusEl.style.color = '#ff6b6b';
     statusEl.textContent = 'Sync FAILED: ' + (err?.message || String(err));
@@ -541,489 +565,303 @@ syncNowBtn.addEventListener('click', () => {
 refreshAutoSyncUI();
 </script>
 
-   //      <script>
-   //      /* =========================================================
-   //         AUTO SYNC (FIELD-AWARE)
-   //         ========================================================= */
-   //      
-   //      const autoCheck = document.getElementById('autoSyncCheck');
-   //      const autoSecs  = document.getElementById('autoSyncSeconds');
-   //      const syncNowBtn = document.getElementById('syncNowBtn');
-   //      const statusEl  = document.getElementById('syncStatus');
-   //      
-   //      let autoTimer = null;
-   //      let syncInFlight = false;
-   //      
-   //      function getFieldId() {
-   //        const v = document.getElementById('field_id')?.value;
-   //        return v ? v.trim() : '';
-   //      }
-   //      
-   //      function canEnableAutoSync() {
-   //        const fieldVal = getFieldId();
-   //        const eventVal = document.getElementById('event')?.value?.trim() || '';
-   //        const matchVal = document.getElementById('match_number')?.value?.trim() || '';
-   //        const gameVal  = document.getElementById('game')?.value?.trim() || '';
-   //        return fieldVal !== '' && eventVal !== '' && matchVal !== '' && gameVal !== '';
-   //      }
-   //      
-   //      function refreshAutoSyncUI() {
-   //        const ok = canEnableAutoSync();
-   //      
-   //        if (!ok) {
-   //          stopAutoSync();
-   //          autoCheck.checked = false;
-   //          autoCheck.disabled = true;
-   //          statusEl.textContent = 'Auto sync disabled (select Field, Game, Event, Match).';
-   //          syncNowBtn.disabled = true;
-   //          return;
-   //        }
-   //      
-   //        autoCheck.disabled = false;
-   //        syncNowBtn.disabled = false;
-   //      
-   //        if (!autoCheck.checked) {
-   //          statusEl.textContent = 'Auto sync is off.';
-   //        }
-   //      }
-   //      
-   //      async function runSyncOnce() {
-   //        if (syncInFlight) return;
-   //        syncInFlight = true;
-   //      
-   //        const fieldVal = getFieldId();
-   //        const eventVal = document.getElementById('event').value.trim();
-   //        const matchVal = document.getElementById('match_number').value.trim();
-   //        const gameVal  = document.getElementById('game').value.trim();
-   //      
-   //        statusEl.style.color = '#fff';
-   //        statusEl.textContent = 'Syncing...';
-   //      
-   //        try {
-   //          const form = new FormData();
-   //          form.append('field_id', fieldVal);
-   //          form.append('event', eventVal);
-   //          form.append('match_number', matchVal);
-   //          form.append('game', gameVal);
-   //      
-   //          const res = await fetch('../php/sync_scouting_submissions_uuid.php?cacheBust=' + Date.now(), {
-   //            method: 'POST',
-   //            body: form
-   //          });
-   //      
-   //          const data = await res.json().catch(async () => {
-   //            const t = await res.text();
-   //            throw new Error('Sync endpoint did not return JSON. Raw: ' + t);
-   //          });
-   //      
-   //          if (!res.ok || !data.success) {
-   //            statusEl.style.color = '#ff6b6b';
-   //            statusEl.textContent = 'Sync FAILED: ' + (data.message || ('HTTP ' + res.status));
-   //            console.error('Sync failed:', data);
-   //            return;
-   //          }
-   //      
-   //          const now = new Date();
-   //          statusEl.style.color = '#6bff95';
-   //          statusEl.textContent =
-   //            `Sync OK @ ${now.toLocaleTimeString()} | local_rows=${data.local_rows} | hosted_affected=${data.hosted_affected}`;
-   //      
-   //        } catch (err) {
-   //          statusEl.style.color = '#ff6b6b';
-   //          statusEl.textContent = 'Sync FAILED: ' + err.message;
-   //          console.error(err);
-   //        } finally {
-   //          syncInFlight = false;
-   //        }
-   //      }
-   //      
-   //      function startAutoSync() {
-   //        stopAutoSync();
-   //        const seconds = parseInt(autoSecs.value, 10) || 5;
-   //        statusEl.textContent = 'Auto sync on (every ' + seconds + 's).';
-   //        runSyncOnce();
-   //        autoTimer = setInterval(runSyncOnce, seconds * 1000);
-   //      }
-   //      
-   //      function stopAutoSync() {
-   //        if (autoTimer) {
-   //          clearInterval(autoTimer);
-   //          autoTimer = null;
-   //        }
-   //      }
-   //      
-   //      autoCheck.addEventListener('change', () => {
-   //        if (!canEnableAutoSync()) {
-   //          autoCheck.checked = false;
-   //          refreshAutoSyncUI();
-   //          return;
-   //        }
-   //        if (autoCheck.checked) startAutoSync();
-   //        else {
-   //          stopAutoSync();
-   //          statusEl.textContent = 'Auto sync is off.';
-   //        }
-   //      });
-   //      
-   //      autoSecs.addEventListener('change', () => {
-   //        if (autoCheck.checked) startAutoSync();
-   //      });
-   //      
-   //      syncNowBtn.addEventListener('click', () => {
-   //        if (!canEnableAutoSync()) {
-   //          statusEl.textContent = 'Select Field, Game, Event, Match first.';
-   //          return;
-   //        }
-   //        runSyncOnce();
-   //      });
-   //      
-   //      ['field_id','event','match_number','game'].forEach(id => {
-   //        const el = document.getElementById(id);
-   //        if (!el) return;
-   //        el.addEventListener('change', refreshAutoSyncUI);
-   //        el.addEventListener('keyup', refreshAutoSyncUI);
-   //      });
-   //      
-   //      refreshAutoSyncUI();
-   //      </script>
-    <!-- ======================
-   //           TIMER (UPDATED)
-   //           - fixes endMatchInFlight not defined
-   //           - uses FIELD_ID_FALLBACK because field select is disabled during active match
-   //           - ends match at >=150s and ALWAYS calls setNextMatch()
-   //           ====================== -->
-       <script>
-         let startTimeMs = <?= json_encode($activeMatch['start_time_utc_ms'] ?? null) ?>;
-         let totalPause = <?= json_encode($activeMatch['total_pause_duration'] ?? 0) ?>;
-         let isPaused   = <?= json_encode((bool)($activeMatch['pause'] ?? 0)) ?>;
-         const matchId  = <?= json_encode($activeMatch['id'] ?? null) ?>;
-       
-         const FIELD_ID_FALLBACK = <?= (int)$selected_field_id ?>;
-       
-         let autoPauseTriggered = false;
-         let autoUnpauseTriggered = false;
-       
-         // NEW: prevent double end-match
-         let endMatchInFlight = false;
-       
-         // Track poll interval so we can stop it cleanly
-         let pausePollInterval = null;
-       
-         function updatePauseStatus() {
-           if (!matchId) return;
-           fetch('../php/get_pause.php?cacheBust=' + Date.now(), {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ match_id: matchId })
-           })
-           .then(r => r.json())
-           .then(data => {
-             isPaused = Boolean(data.pause);
-             totalPause = Number(data.total_pause_duration) || 0;
-           })
-           .catch(err => console.error("Error fetching pause:", err));
-         }
-       
-         if (matchId) pausePollInterval = setInterval(updatePauseStatus, 1000);
-       
-         function updateTimer() {
-           const timerElement = document.getElementById('timer');
-           if (!timerElement) return;
-       
-           if (!startTimeMs) { timerElement.textContent = "No active match."; return; }
-       
-           const realElapsedSeconds = (Date.now() - startTimeMs) / 1000;
-           const delay = parseInt(document.getElementById('delay')?.value, 10) || 0;
-           const elapsedGameTime = realElapsedSeconds - totalPause;
-       
-           // Auto pause at 15s
-           if (!autoPauseTriggered && realElapsedSeconds >= 15 && matchId) {
-             fetch('../php/toggle_pause.php?cacheBust=' + Date.now(), {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ match_id: matchId })
-             }).catch(console.error);
-             autoPauseTriggered = true;
-           }
-           // Auto unpause after delay
-           else if (autoPauseTriggered && !autoUnpauseTriggered && realElapsedSeconds >= (15 + delay) && matchId) {
-             fetch('../php/toggle_pause.php?cacheBust=' + Date.now(), {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ match_id: matchId })
-             }).catch(console.error);
-             autoUnpauseTriggered = true;
-           }
-       
-           if (isPaused) { timerElement.textContent = "Paused"; return; }
-       
-           const MATCH_LEN = 150;
-           const remainingSeconds = Math.max(MATCH_LEN - elapsedGameTime, 0);
-       
-           // Robust end condition
-       if (elapsedGameTime >= MATCH_LEN) {
-         timerElement.textContent = "Match Over";
-         clearInterval(timerInterval);
-         autoPauseTriggered = false;
-         autoUnpauseTriggered = false;
-       
-         // prevent double submit
-         if (typeof endMatchInFlight === 'undefined') window.endMatchInFlight = false;
-         if (endMatchInFlight) return;
-         endMatchInFlight = true;
-       
-         // field select is disabled during match, so it may be blank -> fallback to PHP-selected field
-         const FIELD_ID_FALLBACK = <?= (int)$selected_field_id ?>;
-         const fieldId = parseInt(document.getElementById('field_id')?.value, 10) || FIELD_ID_FALLBACK;
-       
- fetch('../php/end_match.php?cacheBust=' + Date.now(), {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ match_id: matchId, field_id: fieldId })
-})
-.then(r => r.json())
-.then(data => {
-  console.log('end_match response:', data);
+<script>
+let startTimeMs = <?= json_encode($activeMatch['start_time_utc_ms'] ?? null) ?>;
+let totalPause = <?= json_encode($activeMatch['total_pause_duration'] ?? 0) ?>;
+let isPaused   = <?= json_encode((bool)($activeMatch['pause'] ?? 0)) ?>;
+const matchId  = <?= json_encode($activeMatch['id'] ?? null) ?>;
 
-  const gameVal  = (document.getElementById('game')?.value || '').trim();
-  const eventVal = (document.getElementById('event')?.value || '').trim();
+const FIELD_ID_FALLBACK = <?= (int)$selected_field_id ?>;
 
-  // fallback to localStorage if selects are disabled/blank
-  let persisted = {};
-  try { persisted = JSON.parse(localStorage.getItem('owlAdminPersist') || '{}'); } catch {}
+let autoPauseTriggered = false;
+let autoUnpauseTriggered = false;
+let endMatchInFlight = false;
+let pausePollInterval = null;
 
-  const gameToSend  = gameVal  || persisted.game  || '';
-  const eventToSend = eventVal || persisted.event || '';
+function updatePauseStatus() {
+  if (!matchId) return;
+  fetch('../php/get_pause.php?cacheBust=' + Date.now(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ match_id: matchId })
+  })
+  .then(r => r.json())
+  .then(data => {
+    isPaused = Boolean(data.pause);
+    totalPause = Number(data.total_pause_duration) || 0;
+  })
+  .catch(err => console.error("Error fetching pause:", err));
+}
 
-  const url = new URL(window.location.href);
-  url.pathname = window.location.pathname;
-  url.searchParams.set('field_id', fieldId);
-  if (gameToSend)  url.searchParams.set('game', gameToSend);
-  if (eventToSend) url.searchParams.set('event', eventToSend);
-  url.searchParams.set('cacheBust', Date.now());
+if (matchId) pausePollInterval = setInterval(updatePauseStatus, 1000);
 
-  window.location.href = url.toString();
-})
-.catch(err => {
-  console.error('end_match failed', err);
+function updateTimer() {
+  const timerElement = document.getElementById('timer');
+  if (!timerElement) return;
 
-  const gameVal  = (document.getElementById('game')?.value || '').trim();
-  const eventVal = (document.getElementById('event')?.value || '').trim();
+  if (!startTimeMs) {
+    timerElement.textContent = "No active match.";
+    return;
+  }
 
-  let persisted = {};
-  try { persisted = JSON.parse(localStorage.getItem('owlAdminPersist') || '{}'); } catch {}
+  const realElapsedSeconds = (Date.now() - startTimeMs) / 1000;
+  const delay = parseInt(document.getElementById('delay')?.value, 10) || 0;
+  const elapsedGameTime = realElapsedSeconds - totalPause;
 
-  const gameToSend  = gameVal  || persisted.game  || '';
-  const eventToSend = eventVal || persisted.event || '';
+  if (!autoPauseTriggered && realElapsedSeconds >= 15 && matchId) {
+    fetch('../php/toggle_pause.php?cacheBust=' + Date.now(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ match_id: matchId })
+    }).catch(console.error);
+    autoPauseTriggered = true;
+  } else if (autoPauseTriggered && !autoUnpauseTriggered && realElapsedSeconds >= (15 + delay) && matchId) {
+    fetch('../php/toggle_pause.php?cacheBust=' + Date.now(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ match_id: matchId })
+    }).catch(console.error);
+    autoUnpauseTriggered = true;
+  }
 
-  const url = new URL(window.location.href);
-  url.pathname = window.location.pathname;
-  url.searchParams.set('field_id', fieldId);
-  if (gameToSend)  url.searchParams.set('game', gameToSend);
-  if (eventToSend) url.searchParams.set('event', eventToSend);
-  url.searchParams.set('cacheBust', Date.now());
+  if (isPaused) {
+    timerElement.textContent = "Paused";
+    return;
+  }
 
-  window.location.href = url.toString();
-});
-       
-         return;
-       }
-       
-           const minutes = Math.floor(remainingSeconds / 60);
-           const seconds = Math.floor(remainingSeconds % 60);
-           timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} remaining`;
-         }
-       
-         const timerInterval = setInterval(updateTimer, 250);
-         if (startTimeMs) updateTimer();
-       </script>
-       
-       <script>
-         function fetchMatchData() {
-           const fieldId = document.getElementById('field_id').value || <?= (int)$selected_field_id ?>;
-       
-           fetch("get_match_data.php?cacheBust=" + Date.now() + "&field_id=" + encodeURIComponent(fieldId))
-             .then(r => r.json())
-             .then(data => {
-               if (data.error) return;
-       
-               ["red1","red2","red3","blue1","blue2","blue3"].forEach(id => {
-                 const div = document.getElementById(id);
-                 if (!data[id]) { div.innerHTML = `<p>No data</p>`; return; }
-       
-                 const { robot_number, total_points, activities, flash } = data[id];
-                 const allianceClass = id.includes("red") ? "redRobots" : "blueRobots";
-       
-                 div.innerHTML = `
-                   <div class="robot-card ${allianceClass}">
-                     <h2 class="robot-number">🤖 Robot #${robot_number}</h2>
-                     <p class="total-points">Total Points: <span>${total_points}</span></p>
-                     <h3 class="activities-title">Last 5 Activities</h3>
-                     <ul class="activities-list">
-                       ${activities.map(act => `
-                         <li>
-                           <span class="timestamp">${new Date(act.timestamp).toLocaleTimeString()}</span>
-                           <span class="action">${act.action}:</span>
-                           <span class="result">${act.result}</span>
-                         </li>
-                       `).join("")}
-                     </ul>
-                   </div>
-                 `;
-       
-                 if (flash) {
-                   div.classList.add("flash");
-                   setTimeout(() => div.classList.remove("flash"), 1000);
-                 }
-               });
-             })
-             .catch(err => console.error("Error fetching match data:", err));
-         }
-       
-         setInterval(fetchMatchData, 1000);
-         fetchMatchData();
-       
-         function setNextMatch(){
-           const fieldId = document.getElementById('field_id').value || <?= (int)$selected_field_id ?>;
-       
-           fetch('get_active_event.php?cacheBust=' + Date.now() + '&field_id=' + encodeURIComponent(fieldId))
-             .then(r => r.json())
-             .then(data => {
-               const fieldSelect = document.getElementById('field_id');
-               const eventSelect = document.getElementById('event');
-               const matchInput  = document.getElementById('match_number');
-               const gameSelect  = document.getElementById('game');
-               const beginButton = document.querySelector('button[name="begin_match"]');
-       
-               if (data.activeFieldId) fieldSelect.value = data.activeFieldId;
-       
-               eventSelect.value = data.activeEventName || '';
-               matchInput.value  = data.activeMatchNumber || '';
-               gameSelect.value  = data.activeGameName || '';
-       
-               // Unlock controls for next match
-               fieldSelect.disabled = false;
-               eventSelect.disabled = false;
-               matchInput.disabled  = false;
-               gameSelect.disabled  = false;
-               beginButton.disabled = false;
-               beginButton.textContent = 'Begin Match';
-       
-               refreshAutoSyncUI();
-             })
-             .catch(err => console.error('Error fetching active event data:', err));
-         }
-       
-         if (!<?= json_encode($isMatchActive) ?>) setNextMatch();
-       
-         document.getElementById('delay').addEventListener('change', function() {
-           const delayValue = this.value;
-           const fieldId = document.getElementById('field_id').value || <?= (int)$selected_field_id ?>;
-       
-           if (delayValue !== "") {
-             fetch('../php/insert_delay.php?cacheBust=' + Date.now(), {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ delay: delayValue, field_id: fieldId })
-             }).catch(console.error);
-           }
-         });
-       
-         function fetchDelay() {
-           const fieldId = document.getElementById('field_id').value || <?= (int)$selected_field_id ?>;
-       
-           $.ajax({
-             type: 'POST',
-             url: '../php/get_delay.php?cacheBust=' + Date.now(),
-             dataType: 'json',
-             cache: false,
-             data: { field_id: fieldId },
-             success: function(response) {
-               if (response.delay !== null && response.delay !== undefined) {
-                 document.getElementById('delay').value = response.delay;
-               }
-             },
-             error: function(xhr, status, error) {
-               console.error("Error fetching delay:", error);
-             }
-           });
-         }
-       
-         document.getElementById('field_id').addEventListener('change', function() {
-           fetchDelay();
-           refreshAutoSyncUI();
-         });
-       
-         fetchDelay();
-       </script>
+  const MATCH_LEN = 150;
+  const remainingSeconds = Math.max(MATCH_LEN - elapsedGameTime, 0);
 
+  if (elapsedGameTime >= MATCH_LEN) {
+    timerElement.textContent = "Match Over";
+    clearInterval(timerInterval);
+    autoPauseTriggered = false;
+    autoUnpauseTriggered = false;
 
+    if (endMatchInFlight) return;
+    endMatchInFlight = true;
+
+    const fieldId = parseInt(document.getElementById('field_id')?.value, 10) || FIELD_ID_FALLBACK;
+
+    fetch('../php/end_match.php?cacheBust=' + Date.now(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ match_id: matchId, field_id: fieldId })
+    })
+    .then(r => r.json())
+    .then(data => {
+      console.log('end_match response:', data);
+
+      const gameVal  = (document.getElementById('game')?.value || '').trim();
+      const eventVal = (document.getElementById('event')?.value || '').trim();
+
+      const url = new URL(window.location.href);
+      url.pathname = window.location.pathname;
+      url.searchParams.set('field_id', fieldId);
+      if (gameVal)  url.searchParams.set('game', gameVal);
+      if (eventVal) url.searchParams.set('event', eventVal);
+      url.searchParams.set('cacheBust', Date.now());
+
+      window.location.href = url.toString();
+    })
+    .catch(err => {
+      console.error('end_match failed', err);
+
+      const gameVal  = (document.getElementById('game')?.value || '').trim();
+      const eventVal = (document.getElementById('event')?.value || '').trim();
+
+      const url = new URL(window.location.href);
+      url.pathname = window.location.pathname;
+      url.searchParams.set('field_id', fieldId);
+      if (gameVal)  url.searchParams.set('game', gameVal);
+      if (eventVal) url.searchParams.set('event', eventVal);
+      url.searchParams.set('cacheBust', Date.now());
+
+      window.location.href = url.toString();
+    });
+
+    return;
+  }
+
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = Math.floor(remainingSeconds % 60);
+  timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} remaining`;
+}
+
+const timerInterval = setInterval(updateTimer, 250);
+if (startTimeMs) updateTimer();
+</script>
 
 <script>
-(function persistSelectors(){
-  const KEY = 'owlAdminPersist';
+function fetchMatchData() {
+  const fieldId = document.getElementById('field_id')?.value || <?= (int)$selected_field_id ?>;
 
-  function getState() {
-    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); }
-    catch { return {}; }
+  fetch("get_match_data.php?cacheBust=" + Date.now() + "&field_id=" + encodeURIComponent(fieldId))
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) return;
+
+      ["red1","red2","red3","blue1","blue2","blue3"].forEach(id => {
+        const div = document.getElementById(id);
+        if (!div) return;
+
+        if (!data[id]) {
+          div.innerHTML = `<p>No data</p>`;
+          return;
+        }
+
+        const { robot_number, total_points, activities, flash } = data[id];
+        const allianceClass = id.includes("red") ? "redRobots" : "blueRobots";
+
+        div.innerHTML = `
+          <div class="robot-card ${allianceClass}">
+            <h2 class="robot-number">🤖 Robot #${robot_number}</h2>
+            <p class="total-points">Total Points: <span>${total_points}</span></p>
+            <h3 class="activities-title">Last 5 Activities</h3>
+            <ul class="activities-list">
+              ${activities.map(act => `
+                <li>
+                  <span class="timestamp">${new Date(act.timestamp).toLocaleTimeString()}</span>
+                  <span class="action">${act.action}:</span>
+                  <span class="result">${act.result}</span>
+                </li>
+              `).join("")}
+            </ul>
+          </div>
+        `;
+
+        if (flash) {
+          div.classList.add("flash");
+          setTimeout(() => div.classList.remove("flash"), 1000);
+        }
+      });
+    })
+    .catch(err => console.error("Error fetching match data:", err));
+}
+
+setInterval(fetchMatchData, 1000);
+fetchMatchData();
+
+function setNextMatch() {
+  const fieldId = document.getElementById('field_id')?.value || <?= (int)$selected_field_id ?>;
+
+  fetch('get_active_event.php?cacheBust=' + Date.now() + '&field_id=' + encodeURIComponent(fieldId))
+    .then(r => r.json())
+    .then(data => {
+      const fieldSelect = document.getElementById('field_id');
+      const eventSelect = document.getElementById('event');
+      const matchInput  = document.getElementById('match_number');
+      const gameSelect  = document.getElementById('game');
+      const beginButton = document.querySelector('button[name="begin_match"]');
+
+      const savedGame = getCookie("owl_game");
+
+      eventSelect.value = data.activeEventName || '';
+      matchInput.value  = data.activeMatchNumber || '';
+
+      if (data.activeGameName) {
+        gameSelect.value = data.activeGameName;
+      } else if (savedGame) {
+        gameSelect.value = savedGame;
+      } else {
+        gameSelect.value = '';
+      }
+
+      fieldSelect.disabled = false;
+      eventSelect.disabled = false;
+      matchInput.disabled  = false;
+      gameSelect.disabled  = false;
+      beginButton.disabled = false;
+      beginButton.textContent = 'Begin Match';
+
+      refreshAutoSyncUI();
+    })
+    .catch(err => console.error('Error fetching active event data:', err));
+}
+
+if (!<?= json_encode($isMatchActive) ?>) setNextMatch();
+
+document.getElementById('delay')?.addEventListener('change', function() {
+  const delayValue = this.value;
+  const fieldId = document.getElementById('field_id')?.value || <?= (int)$selected_field_id ?>;
+
+  if (delayValue !== "") {
+    fetch('../php/insert_delay.php?cacheBust=' + Date.now(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delay: delayValue, field_id: fieldId })
+    }).catch(console.error);
   }
-  function setState(patch) {
-    const s = getState();
-    const next = { ...s, ...patch };
-    localStorage.setItem(KEY, JSON.stringify(next));
+});
+
+function fetchDelay() {
+  const fieldId = document.getElementById('field_id')?.value || <?= (int)$selected_field_id ?>;
+
+  $.ajax({
+    type: 'POST',
+    url: '../php/get_delay.php?cacheBust=' + Date.now(),
+    dataType: 'json',
+    cache: false,
+    data: { field_id: fieldId },
+    success: function(response) {
+      if (response.delay !== null && response.delay !== undefined) {
+        document.getElementById('delay').value = response.delay;
+      }
+    },
+    error: function(xhr, status, error) {
+      console.error("Error fetching delay:", error);
+    }
+  });
+}
+
+document.getElementById('field_id')?.addEventListener('change', function() {
+  fetchDelay();
+  refreshAutoSyncUI();
+});
+
+fetchDelay();
+</script>
+
+<script>
+const gameSelectCookie = document.getElementById('game');
+const fieldSelectCookie = document.getElementById('field_id');
+
+if (gameSelectCookie) {
+  gameSelectCookie.addEventListener('change', function () {
+    document.cookie = "owl_game=" + encodeURIComponent(this.value) + "; path=/; max-age=" + (60*60*24*30);
+  });
+}
+
+if (fieldSelectCookie) {
+  fieldSelectCookie.addEventListener('change', function () {
+    document.cookie = "owl_field_id=" + encodeURIComponent(this.value) + "; path=/; max-age=" + (60*60*24*30);
+  });
+}
+
+function getCookie(name) {
+  const value = "; " + document.cookie;
+  const parts = value.split("; " + name + "=");
+  if (parts.length === 2) return decodeURIComponent(parts.pop().split(";").shift());
+  return null;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const gameSelect = document.getElementById('game');
+  const fieldSelect = document.getElementById('field_id');
+
+  const savedGame = getCookie("owl_game");
+  const savedFieldId = getCookie("owl_field_id");
+
+  if (fieldSelect && savedFieldId && !<?= json_encode($isMatchActive) ?>) {
+    fieldSelect.value = savedFieldId;
   }
 
-  function el(id){ return document.getElementById(id); }
+  if (gameSelect && savedGame && !<?= json_encode($isMatchActive) ?>) {
+    gameSelect.value = savedGame;
+  }
 
-  // Restore on load (but don't override server-set active match values if present)
-  window.addEventListener('DOMContentLoaded', () => {
-    const s = getState();
-
-    // If URL has params, prefer those (we'll add them in the redirect)
-    const url = new URL(window.location.href);
-    const qpField = url.searchParams.get('field_id');
-    const qpGame  = url.searchParams.get('game');
-    const qpEvent = url.searchParams.get('event');
-
-    const fieldSel = el('field_id');
-    const gameSel  = el('game');
-    const eventSel = el('event');
-
-    // Only apply if the element exists and currently blank OR you want to always restore when not active.
-    // This version restores if blank.
-    if (fieldSel && (fieldSel.value === '' || fieldSel.value == null)) {
-      const v = qpField || s.field_id;
-      if (v != null && v !== '') fieldSel.value = String(v);
-    }
-
-    if (gameSel && (gameSel.value === '' || gameSel.value == null)) {
-      const v = qpGame || s.game;
-      if (v != null && v !== '') gameSel.value = String(v);
-    }
-
-    if (eventSel && (eventSel.value === '' || eventSel.value == null)) {
-      const v = qpEvent || s.event;
-      if (v != null && v !== '') eventSel.value = String(v);
-    }
-
-    // Save whatever is currently set (server or restored)
-    if (fieldSel) setState({ field_id: fieldSel.value });
-    if (gameSel)  setState({ game: gameSel.value });
-    if (eventSel) setState({ event: eventSel.value });
-  });
-
-  // Save whenever user changes them
-  ['field_id','game','event'].forEach(id => {
-    const x = document.getElementById(id);
-    if (!x) return;
-    x.addEventListener('change', () => {
-      if (id === 'field_id') setState({ field_id: x.value });
-      if (id === 'game')     setState({ game: x.value });
-      if (id === 'event')    setState({ event: x.value });
-    });
-  });
-
-})();
+  refreshAutoSyncUI();
+});
 </script>
 
 </body>

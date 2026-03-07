@@ -1,4 +1,5 @@
 <?php
+// index.php
 require_once '../php/database_connection.php';
 
 // --- CONFIG ---
@@ -9,13 +10,17 @@ $gamesDir = __DIR__ . '/../scouter/games';
 $gameFiles = [];
 if (is_dir($gamesDir)) {
     $files = glob($gamesDir . '/*.json');
-    sort($files, SORT_NATURAL | SORT_FLAG_CASE);
-    foreach ($files as $f) {
-        $gameFiles[] = basename($f, '.json');
+    if ($files !== false) {
+        sort($files, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($files as $f) {
+            $gameFiles[] = basename($f, '.json');
+        }
     }
 }
 $latestGame   = end($gameFiles) ?: '';
 $selectedGame = $_POST['game'] ?? $latestGame;
+$selectedFieldId = isset($_POST['field_id']) ? (int)$_POST['field_id'] : 1;
+if ($selectedFieldId <= 0) $selectedFieldId = 1;
 
 // --- Helper for TBA API ---
 function tba_api($endpoint, $auth_key) {
@@ -28,73 +33,90 @@ function tba_api($endpoint, $auth_key) {
     if (!$response) die("TBA API request failed: " . curl_error($ch));
     curl_close($ch);
     return json_decode($response, true);
-    
 }
 
 $year = $_POST['year'] ?? date('Y');
 $event_key = $_POST['event'] ?? '';
 $event_name = '';
+
 if (!empty($event_key)) {
     $eventData = tba_api("event/$event_key", $TBA_AUTH_KEY) ?? [];
     $event_name = $eventData['name'] ?? $event_key;
 }
+
 $importPressed = isset($_POST['import_schedule']);
 $message = '';
 $matches = [];
+
 if ($event_key && $selectedGame && isset($_POST['preview_schedule'])) {
     $matches = tba_api("event/$event_key/matches", $TBA_AUTH_KEY);
 
-// Sort by match number numerically
-usort($matches, function($a, $b) {
-    $aStr = (string)($a['match_number'] ?? '');
-    $bStr = (string)($b['match_number'] ?? '');
-    $lenDiff = strlen($aStr) <=> strlen($bStr);
-    return $lenDiff !== 0 ? $lenDiff : ((int)$aStr <=> (int)$bStr);
-});
+    usort($matches, function($a, $b) {
+        $aStr = (string)($a['match_number'] ?? '');
+        $bStr = (string)($b['match_number'] ?? '');
+        $lenDiff = strlen($aStr) <=> strlen($bStr);
+        return $lenDiff !== 0 ? $lenDiff : ((int)$aStr <=> (int)$bStr);
+    });
 }
 
-if ($importPressed && $event_key && $selectedGame) {
+if ($importPressed && $event_key && $selectedGame && $selectedFieldId) {
     $matches = tba_api("event/$event_key/matches", $TBA_AUTH_KEY);
+
     if (!is_array($matches) || empty($matches)) {
         $message = "No matches found for this event.";
     } else {
         usort($matches, function($a, $b) {
-    $order = ['qm' => 1, 'ef' => 2, 'qf' => 3, 'sf' => 4, 'f' => 5];
-    $a_lvl = $order[$a['comp_level']] ?? 99;
-    $b_lvl = $order[$b['comp_level']] ?? 99;
+            $order = ['qm' => 1, 'ef' => 2, 'qf' => 3, 'sf' => 4, 'f' => 5];
+            $a_lvl = $order[$a['comp_level']] ?? 99;
+            $b_lvl = $order[$b['comp_level']] ?? 99;
 
-    if ($a_lvl !== $b_lvl) return $a_lvl <=> $b_lvl;
-    if (($a['set_number'] ?? 0) !== ($b['set_number'] ?? 0))
-        return ($a['set_number'] ?? 0) <=> ($b['set_number'] ?? 0);
-    return ($a['match_number'] ?? 0) <=> ($b['match_number'] ?? 0);
-});
-        // Delete only rows for same game + event
-        $del = $pdo->prepare("DELETE FROM active_event WHERE event_name = :event_name AND game = :game");
-        $del->execute([':event_name' => $event_name, ':game' => $selectedGame]);
+            if ($a_lvl !== $b_lvl) return $a_lvl <=> $b_lvl;
+            if (($a['set_number'] ?? 0) !== ($b['set_number'] ?? 0)) {
+                return ($a['set_number'] ?? 0) <=> ($b['set_number'] ?? 0);
+            }
+            return ($a['match_number'] ?? 0) <=> ($b['match_number'] ?? 0);
+        });
+
+        // Delete only rows for same event + game + field_id
+        $del = $pdo->prepare("
+            DELETE FROM active_event
+            WHERE event_name = :event_name
+              AND game = :game
+              AND field_id = :field_id
+        ");
+        $del->execute([
+            ':event_name' => $event_name,
+            ':game' => $selectedGame,
+            ':field_id' => $selectedFieldId
+        ]);
 
         $insert = $pdo->prepare("
-            INSERT INTO active_event (event_name, game, match_number, alliance, robot)
-            VALUES (:event_name, :game, :match_number, :alliance, :robot)
+            INSERT INTO active_event (event_name, game, match_number, alliance, robot, field_id)
+            VALUES (:event_name, :game, :match_number, :alliance, :robot, :field_id)
         ");
 
         $count = 0;
         foreach ($matches as $m) {
             if (($m['comp_level'] ?? '') !== 'qm') continue;
+
             $match_number = $m['match_number'];
+
             foreach (['red', 'blue'] as $alliance) {
-                foreach ($m['alliances'][$alliance]['team_keys'] as $team) {
+                foreach (($m['alliances'][$alliance]['team_keys'] ?? []) as $team) {
                     $insert->execute([
                         ':event_name'   => $event_name,
                         ':game'         => $selectedGame,
                         ':match_number' => $match_number,
                         ':alliance'     => ucfirst($alliance),
-                        ':robot'        => str_replace('frc', '', $team)
+                        ':robot'        => str_replace('frc', '', $team),
+                        ':field_id'     => $selectedFieldId
                     ]);
                     $count++;
                 }
             }
         }
-$message = "Inserted {$count} rows for “{$event_name}” ({$selectedGame}).";
+
+        $message = "Inserted {$count} rows for “{$event_name}” ({$selectedGame}) on Field {$selectedFieldId}.";
     }
 }
 
@@ -107,6 +129,7 @@ usort($events, fn($a, $b) => strcmp($a['name'], $b['name']));
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../css/select.css">
 <title>Import FRC Schedule</title>
 <style>
 body, html {
@@ -124,6 +147,7 @@ select, button {
   font-size: 1rem; padding: 10px 14px; margin: 8px;
   border-radius: 5px; border: 1px solid #ccc;
   background: #333; color: #fff;
+  max-width:200px;
 }
 body.light select, body.light button {
   background: #fff; color: #000; border: 1px solid #999;
@@ -156,7 +180,14 @@ body.light #themeToggle {
   <label for="year">Year:</label>
   <select name="year" id="year" onchange="this.form.submit()">
     <?php for ($y = 2023; $y <= date('Y'); $y++): ?>
-      <option value="<?= $y ?>" <?= $y==$year?'selected':'' ?>><?= $y ?></option>
+      <option value="<?= $y ?>" <?= $y == $year ? 'selected' : '' ?>><?= $y ?></option>
+    <?php endfor; ?>
+  </select>
+
+  <label for="field_id">Field:</label>
+  <select name="field_id" id="field_id">
+    <?php for ($f = 1; $f <= 6; $f++): ?>
+      <option value="<?= $f ?>" <?= $f === $selectedFieldId ? 'selected' : '' ?>>Field <?= $f ?></option>
     <?php endfor; ?>
   </select>
 
@@ -166,7 +197,7 @@ body.light #themeToggle {
     <?php foreach ($events as $e): ?>
       <option value="<?= htmlspecialchars($e['key']) ?>"
         data-name="<?= htmlspecialchars($e['name']) ?>"
-        <?= ($event_key===$e['key']?'selected':'') ?>>
+        <?= ($event_key === $e['key'] ? 'selected' : '') ?>>
         <?= htmlspecialchars($e['name']) ?>
       </option>
     <?php endforeach; ?>
@@ -177,7 +208,7 @@ body.light #themeToggle {
   <label for="game">Game:</label>
   <select name="game" id="game">
     <?php foreach ($gameFiles as $g): ?>
-      <option value="<?= htmlspecialchars($g) ?>" <?= $g===$selectedGame?'selected':'' ?>>
+      <option value="<?= htmlspecialchars($g) ?>" <?= $g === $selectedGame ? 'selected' : '' ?>>
         <?= htmlspecialchars($g) ?>
       </option>
     <?php endforeach; ?>
@@ -196,8 +227,8 @@ body.light #themeToggle {
     <tr><th>Match</th><th>Red Alliance</th><th>Blue Alliance</th></tr>
     <?php foreach ($matches as $m): if (($m['comp_level'] ?? '') !== 'qm') continue;
       $num = $m['match_number'];
-      $red = implode(', ', array_map(fn($t)=>str_replace('frc','',$t), $m['alliances']['red']['team_keys']));
-      $blue = implode(', ', array_map(fn($t)=>str_replace('frc','',$t), $m['alliances']['blue']['team_keys']));
+      $red = implode(', ', array_map(fn($t) => str_replace('frc', '', $t), $m['alliances']['red']['team_keys']));
+      $blue = implode(', ', array_map(fn($t) => str_replace('frc', '', $t), $m['alliances']['blue']['team_keys']));
     ?>
       <tr><td><?= $num ?></td><td class="red"><?= $red ?></td><td class="blue"><?= $blue ?></td></tr>
     <?php endforeach; ?>
@@ -206,7 +237,6 @@ body.light #themeToggle {
 
 <button id="themeToggle" title="Toggle Theme">🌙</button>
 <script>
-// store selected event name for POST
 document.getElementById('event').addEventListener('change', function() {
   const selected = this.options[this.selectedIndex];
   document.getElementById('event_name_hidden').value = selected.getAttribute('data-name') || '';
@@ -217,10 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('themeToggle');
   const saved = localStorage.getItem('owlTheme') || 'dark';
   applyTheme(saved);
+
   btn.addEventListener('click', () => {
     const next = bodyEl.classList.contains('light') ? 'dark' : 'light';
     applyTheme(next);
   });
+
   function applyTheme(theme) {
     bodyEl.classList.toggle('light', theme === 'light');
     btn.textContent = theme === 'light' ? '☀️' : '🌙';
@@ -231,3 +263,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+

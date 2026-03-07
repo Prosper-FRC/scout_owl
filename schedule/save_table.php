@@ -1,4 +1,6 @@
 <?php
+//save_table.php
+
 $data = json_decode(file_get_contents("php://input"), true);
 if (empty($data['html'])) {
   http_response_code(400);

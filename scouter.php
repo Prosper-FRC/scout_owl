@@ -1,6 +1,5 @@
 <?php
 
-// 1) Include DB connection.
 include 'php/database_connection.php';
 
 // 2) Get distinct event names from active_event.
@@ -30,7 +29,6 @@ if ($row) {
     $activeEventName = $row['event_name'];
     $activeMatch     = $row['match_number'];
 } else {
-    // fallback: get the first available event from active_event
     $fallbackQuery = "SELECT event_name, MIN(match_number) AS match_number FROM active_event GROUP BY event_name ORDER BY event_name LIMIT 1";
     $fallbackStmt = $pdo->prepare($fallbackQuery);
     $fallbackStmt->execute();
@@ -46,16 +44,18 @@ if ($row) {
 }
 
 // --- select the game type
-$gamesDir = __DIR__ . '/scouter/games'; // Path relative to this file
+$gamesDir = __DIR__ . '/scouter/games';
 $gameFiles = [];
 if (is_dir($gamesDir)) {
     $files = glob($gamesDir . '/*.json');
-    sort($files, SORT_NATURAL | SORT_FLAG_CASE);
-    foreach ($files as $f) {
-        $gameFiles[] = basename($f); // Get just the filename
+    if ($files !== false) {
+        sort($files, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($files as $f) {
+            $gameFiles[] = basename($f);
+        }
     }
 }
-$latestGame = end($gameFiles) ?: ''; // Find the latest game
+$latestGame = end($gameFiles) ?: '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -91,11 +91,10 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
 <body>
 <div class="containerOuter">
   <div class="container">
-    <a href="."><img src="images/thescoutowl.png" class="logo"></a>
+    <a href="."><img src="images/thescoutowl.png" class="logo" alt="Logo"></a>
 
     <form id="scoutingForm">
 
-      <!-- NEW: Field dropdown -->
       <label for="fieldDropdown">Field:</label>
       <select id="fieldDropdown" name="field_id" required>
         <option value="">Select Field</option>
@@ -141,13 +140,55 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
 
     <script>
       $(document).ready(function() {
+        const STORAGE_KEY = 'scoutowl_launcher_state';
+
+        function getLauncherState() {
+          try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          } catch (e) {
+            return {};
+          }
+        }
+
+        function setLauncherState(patch) {
+          const current = getLauncherState();
+          const next = { ...current, ...patch };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        }
 
         let activeEventName = <?php echo json_encode($activeEventName); ?>;
         let activeMatch     = <?php echo json_encode($activeMatch); ?>;
 
-        // 2) On change for #eventDropdown
+        const savedState = getLauncherState();
+
+        // Restore saved values first
+        if (savedState.field_id) {
+          $('#fieldDropdown').val(savedState.field_id);
+        }
+
+        if (savedState.game) {
+          $('#gameDropdown').val(savedState.game);
+        }
+
+        if (savedState.event) {
+          $('#eventDropdown').val(savedState.event);
+        }
+
+        // Save field
+        $('#fieldDropdown').on('change', function() {
+          setLauncherState({ field_id: $(this).val() });
+        });
+
+        // Save game
+        $('#gameDropdown').on('change', function() {
+          setLauncherState({ game: $(this).val() });
+        });
+
+        // Event change
         $('#eventDropdown').change(function() {
           var eventName = $(this).val();
+
+          setLauncherState({ event: eventName });
 
           if (eventName) {
             $.ajax({
@@ -158,6 +199,7 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
                 $('#matchNumberDropdown').html(response);
                 $('#robotDropdown').html('<option value="">Select Robot</option>');
                 $('#allianceDisplay').val('');
+                $('#robotDropdown').css('background-color', '');
 
                 if (activeMatch) {
                   $('#matchNumberDropdown').val(activeMatch).trigger('change');
@@ -171,10 +213,11 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
             $('#matchNumberDropdown').html('<option value="">Select Match Number</option>');
             $('#robotDropdown').html('<option value="">Select Robot</option>');
             $('#allianceDisplay').val('');
+            $('#robotDropdown').css('background-color', '');
           }
         });
 
-        // 3) On change for #matchNumberDropdown
+        // Match change
         $('#matchNumberDropdown').change(function() {
           var eventName   = $('#eventDropdown').val();
           var matchNumber = $(this).val();
@@ -187,6 +230,7 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
               success: function(response) {
                 $('#robotDropdown').html(response);
                 $('#allianceDisplay').val('');
+                $('#robotDropdown').css('background-color', '');
               },
               error: function(xhr, status, error) {
                 console.error('AJAX Error in fetchRobots:', status, error);
@@ -195,10 +239,11 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
           } else {
             $('#robotDropdown').html('<option value="">Select Robot</option>');
             $('#allianceDisplay').val('');
+            $('#robotDropdown').css('background-color', '');
           }
         });
 
-        // 4) On change for #robotDropdown
+        // Robot change
         $('#robotDropdown').change(function() {
           var eventName   = $('#eventDropdown').val();
           var matchNumber = $('#matchNumberDropdown').val();
@@ -212,10 +257,12 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
               success: function(response) {
                 $('#allianceDisplay').val(response);
 
-                if (response == 'Red') {
+                if (response === 'Red') {
                   $('#robotDropdown').css('background-color', '#C0392B');
-                } else {
+                } else if (response === 'Blue') {
                   $('#robotDropdown').css('background-color', '#2C3E50');
+                } else {
+                  $('#robotDropdown').css('background-color', '');
                 }
               },
               error: function(xhr, status, error) {
@@ -224,10 +271,11 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
             });
           } else {
             $('#allianceDisplay').val('');
+            $('#robotDropdown').css('background-color', '');
           }
         });
 
-        // 5) On submit: include field_id in the URL
+        // Submit
         $('#submitForm').click(function() {
           var fieldId     = $('#fieldDropdown').val();
           var event       = $('#eventDropdown').val();
@@ -237,6 +285,12 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
           var alliance    = $('#allianceDisplay').val();
 
           if (fieldId && event && game && matchNumber && robot && alliance) {
+            setLauncherState({
+              field_id: fieldId,
+              event: event,
+              game: game
+            });
+
             window.location.href =
               `scouter/index.php?event=${encodeURIComponent(event)}&match=${encodeURIComponent(matchNumber)}&robot=${encodeURIComponent(robot)}&alliance=${encodeURIComponent(alliance)}&game=${encodeURIComponent(game)}&field_id=${encodeURIComponent(fieldId)}`;
           } else {
@@ -244,8 +298,10 @@ $latestGame = end($gameFiles) ?: ''; // Find the latest game
           }
         });
 
-        // 6) Auto-set event + match as before
-        if (activeEventName) {
+        // Restore event from saved state first, else fallback to DB-derived event
+        if (savedState.event) {
+          $('#eventDropdown').val(savedState.event).trigger('change');
+        } else if (activeEventName) {
           $('#eventDropdown').val(activeEventName).trigger('change');
         }
       });
