@@ -183,19 +183,19 @@ $teamPageBase = "https://www.thebluealliance.com/team/";
     /* --- Font Faces --- */
     @font-face {
       font-family: 'Roboto';
-      src: url('/../stat_goblin/fonts/roboto/Roboto-Regular.ttf') format('truetype');
+      src: url('/../scout_owl/fonts/roboto/Roboto-Regular.ttf') format('truetype');
       font-weight: normal;
       font-style: normal;
     }
     @font-face {
       font-family: 'Griffy';
-      src: url('/../stat_goblin/fonts/Griffy/Griffy-Regular.ttf') format('truetype');
+      src: url('/../scout_owl/fonts/Griffy/Griffy-Regular.ttf') format('truetype');
       font-weight: normal;
       font-style: normal;
     }
     @font-face {
       font-family: 'Comfortaa';
-      src: url('/../stat_goblin/fonts/Comfortaa/Comfortaa-VariableFont_wght.ttf') format('truetype');
+      src: url('/../scout_owl/fonts/Comfortaa/Comfortaa-VariableFont_wght.ttf') format('truetype');
       font-weight: normal;
       font-style: normal;
     }
