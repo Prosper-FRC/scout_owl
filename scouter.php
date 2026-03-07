@@ -67,9 +67,9 @@ $latestGame = end($gameFiles) ?: '';
     <style>
         @media (max-width: 800px) { form { gap: 8px; } }
 
-        @font-face { font-family: 'Roboto'; src: url('/../stat_goblin/fonts/roboto/Roboto-Regular.ttf') format('ttf'), url('/../stat_goblin/fonts/roboto/Roboto-Regular.ttf') format('ttf'); font-weight: normal; font-style: normal; }
-        @font-face { font-family: 'Griffy'; src: url('/../stat_goblin/fonts/Griffy/Griffy-Regular.ttf') format('ttf'), url('/../stat_goblin/fonts/Griffy/Griffy-Regular.ttf') format('ttf'); font-weight: normal; font-style: normal; }
-        @font-face { font-family: 'Comfortaa'; src: url('/../stat_goblin/fonts/Comfortaa/Comfortaa-VariableFont_wght.ttf') format('ttf'), url('/../stat_goblin/fonts/Comfortaa/Comfortaa-VariableFont_wght.ttf') format('ttf'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: 'Roboto'; src: url('/../scout_owl/fonts/roboto/Roboto-Regular.ttf') format('ttf'), url('/../stat_goblin/fonts/roboto/Roboto-Regular.ttf') format('ttf'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: 'Griffy'; src: url('/../scout_owl/fonts/Griffy/Griffy-Regular.ttf') format('ttf'), url('/../stat_goblin/fonts/Griffy/Griffy-Regular.ttf') format('ttf'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: 'Comfortaa'; src: url('/../scout_owl/fonts/Comfortaa/Comfortaa-VariableFont_wght.ttf') format('ttf'), url('/../stat_goblin/fonts/Comfortaa/Comfortaa-VariableFont_wght.ttf') format('ttf'); font-weight: normal; font-style: normal; }
 
         body, html { font-family: 'Comfortaa', sans-serif; margin:0; padding:0; background:#222; color:#eee; line-height:1.5; text-align:center; }
         h1 { text-align:left; font-size:1.2rem; margin-top:-10px; margin-left:12px; }
