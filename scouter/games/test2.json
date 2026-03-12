@@ -1,0 +1,45 @@
+{
+  "game": "test2",
+  "buttons": [
+    {
+      "name": "Picks Up Coral",
+      "code": "picks_up_coral",
+      "type": "offense",
+      "location": "station",
+      "layout": "rect-4",
+      "autonPoints": 0,
+      "teleopPoints": 0,
+      "bgColor": "#FFE135"
+    },
+    {
+      "name": "Scores Coral Lvl 1",
+      "code": "scores_coral_level_1",
+      "type": "offense",
+      "location": "reef",
+      "layout": "rect-4",
+      "autonPoints": 3,
+      "teleopPoints": 2,
+      "bgColor": "#037c6e"
+    },
+    {
+      "name": "Co-op Action",
+      "code": "co_op_action",
+      "type": "cooperative",
+      "location": "anywhere",
+      "layout": "rect-4",
+      "autonPoints": 0,
+      "teleopPoints": 0,
+      "bgColor": "#000000"
+    },
+    {
+      "name": "test",
+      "code": "test",
+      "type": "offense",
+      "location": "",
+      "layout": "rect-1",
+      "autonPoints": 0,
+      "teleopPoints": 0,
+      "bgColor": "undefined"
+    }
+  ]
+}
