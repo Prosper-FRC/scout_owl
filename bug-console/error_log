@@ -1,9 +1,0 @@
-[11-Nov-2025 14:23:05 America/Boise] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in /home3/prospfv0/public_html/stat_owl/admin-console/mini_phpmyadmin.php on line 304
-[11-Nov-2025 14:24:54 America/Boise] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in /home3/prospfv0/public_html/stat_owl/admin-console/mini_phpmyadmin.php on line 304
-[11-Nov-2025 14:24:59 America/Boise] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in /home3/prospfv0/public_html/stat_owl/admin-console/mini_phpmyadmin.php on line 304
-[11-Nov-2025 14:25:25 America/Boise] PHP Fatal error:  Uncaught ValueError: PDO::query(): Argument #1 ($query) cannot be empty in /home3/prospfv0/public_html/stat_owl/admin-console/mini_phpmyadmin.php:156
-Stack trace:
-#0 /home3/prospfv0/public_html/stat_owl/admin-console/mini_phpmyadmin.php(156): PDO->query('')
-#1 {main}
-  thrown in /home3/prospfv0/public_html/stat_owl/admin-console/mini_phpmyadmin.php on line 156
-[11-Nov-2025 14:25:37 America/Boise] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in /home3/prospfv0/public_html/stat_owl/admin-console/mini_phpmyadmin.php on line 304
